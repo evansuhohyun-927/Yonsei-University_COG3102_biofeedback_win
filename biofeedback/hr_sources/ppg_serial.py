@@ -23,7 +23,7 @@ class PPGSerialSource(HRSource):
         bus: EventBus,
         port: str,
         baudrate: int = 115200,
-        sample_rate_hz: float = 100.0,
+        sample_rate_hz: float = 200.0,
         window_seconds: float = 8.0,
         bpm_update_hz: float = 1.0,
         min_peak_distance_ms: float = 300.0,

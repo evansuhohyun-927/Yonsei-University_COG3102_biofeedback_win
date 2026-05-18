@@ -11,7 +11,9 @@ from .feedback.audio import AudioFeedback
 from .gui.experimenter import ExperimenterWindow
 from .hr_sources.base import HRSource
 from .hr_sources.mock import MockHRSource
-
+from .core.session_logger import SessionLogger
+from .core.bpm_smoother import BPMSmoother
+from .core.bpm_lsl_outlet import BPMLSLOutlet
 
 def make_source(name: str, bus: EventBus, args: argparse.Namespace) -> tuple[HRSource, str]:
     if name == "mock":
@@ -41,6 +43,16 @@ def main() -> None:
     app = QApplication(sys.argv)
     bus = EventBus()
 
+    lsl_outlet = BPMLSLOutlet(bus)
+    lsl_outlet.start()
+
+    # 추가
+    smoother = BPMSmoother(bus)
+    smoother.start()
+
+    logger = SessionLogger(participant_id="TEST", save_dir="data")
+    logger.start(bus)
+
     manipulator = Manipulator(bus)
     beat_scheduler = BeatScheduler(bus)
     audio = AudioFeedback(bus, mode="heartbeat")
@@ -65,6 +77,8 @@ def main() -> None:
         manipulator.stop()
         beat_scheduler.stop()
         audio.stop()
+        logger.stop()  # 추가
+        lsl_outlet.stop()
     sys.exit(exit_code)
 
 

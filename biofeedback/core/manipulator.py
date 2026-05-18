@@ -33,7 +33,7 @@ class Manipulator:
         self._state_start_time = 0.0
         self._ramp_down_start_factor = 0.0
 
-        bus.subscribe("bpm_real", self._on_real_bpm)
+        bus.subscribe("bpm_real_smooth", self._on_real_bpm)
 
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)

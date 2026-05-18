@@ -1,0 +1,2 @@
+epoch_index,epoch_start_time,epoch_end_time,real_bpm_mean,real_bpm_std,output_bpm_mean,output_bpm_std,mismatch_pct_mean,manipulator_state
+0,1779095395.894,1779095426.022,69.90,5.60,70.33,5.24,0.00,idle
