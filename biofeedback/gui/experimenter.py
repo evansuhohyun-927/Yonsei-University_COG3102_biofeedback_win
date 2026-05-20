@@ -1,3 +1,4 @@
+from PyQt6.QtCore import Qt, QTimer, QObject, pyqtSignal, pyqtSlot
 import time
 from collections import deque
 
@@ -441,3 +442,18 @@ class ExperimenterWindow(QMainWindow):
             )
             self.ppg_preview_curve.setData([], [])
             self.ppg_peak_scatter.setData([], [])
+
+# --- LSLController에서 호출하는 자동 제어 메서드 (Qt slot) ---------------
+    @pyqtSlot()
+    def open_participant_window_auto(self) -> None:
+	elf._open_participant_window()
+	if self.participant_window:
+		self.participant_window.setWindowState(Qt.WindowState.WindowActive)
+        	self.participant_window.raise_()
+        	self.participant_window.activateWindow()       
+
+    @pyqtSlot()
+    def set_audio_on(self) -> None:
+        """LSLController가 baseline 마커 받으면 자동으로 오디오 ON."""
+        if not self.audio_btn.isChecked():
+            self.audio_btn.setChecked(True)

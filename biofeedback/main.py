@@ -14,6 +14,7 @@ from .hr_sources.mock import MockHRSource
 from .core.session_logger import SessionLogger
 from .core.bpm_smoother import BPMSmoother
 from .core.bpm_lsl_outlet import BPMLSLOutlet
+from .core.lsl_controller import LSLController
 
 def make_source(name: str, bus: EventBus, args: argparse.Namespace) -> tuple[HRSource, str]:
     if name == "mock":
@@ -55,7 +56,7 @@ def main() -> None:
 
     manipulator = Manipulator(bus)
     beat_scheduler = BeatScheduler(bus)
-    audio = AudioFeedback(bus, mode="heartbeat")
+    audio = AudioFeedback(bus, mode="heartbeat", thump_gain=0.9)
     source_manager = SourceManager(bus)
 
     try:
@@ -68,6 +69,8 @@ def main() -> None:
         source_manager.set_source(MockHRSource(bus), "mock")
 
     win = ExperimenterWindow(bus, manipulator, audio, source_manager)
+    lsl_ctrl = LSLController(bus, manipulator, win)
+    lsl_ctrl.start()
     win.show()
 
     try:
@@ -79,6 +82,7 @@ def main() -> None:
         audio.stop()
         logger.stop()  # 추가
         lsl_outlet.stop()
+        lsl_ctrl.stop()
     sys.exit(exit_code)
 
 
