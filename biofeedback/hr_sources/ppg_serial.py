@@ -175,6 +175,8 @@ class PPGSerialSource(HRSource):
                 with self._lock:
                     self._buffer.append(v)
                     self._sample_count += 1
+                # Publish raw PPG sample for LSL outlet (PPG_raw stream)
+                self.bus.publish("ppg_sample", v)
             except Exception as e:
                 print(f"[ppg] read error: {e}")
                 self._connected = False

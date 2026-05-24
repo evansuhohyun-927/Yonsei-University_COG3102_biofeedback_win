@@ -3,18 +3,22 @@ import time
 
 import numpy as np
 from PyQt6.QtCore import Qt, QTimer, QObject, pyqtSignal, QPointF
-from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPolygonF, QPainterPath
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPolygonF, QPainterPath, QFont
+from PyQt6.QtWidgets import QWidget, QLabel
 
 from ..core.bus import EventBus
 
 
 class _ParticipantBridge(QObject):
     beat = pyqtSignal()
+    likert_show = pyqtSignal(str)
+    likert_hide = pyqtSignal()
 
     def __init__(self, bus: EventBus):
         super().__init__()
         bus.subscribe("beat", lambda _ts: self.beat.emit())
+        bus.subscribe("likert_show", lambda text: self.likert_show.emit(text or ""))
+        bus.subscribe("likert_hide", lambda _: self.likert_hide.emit())
 
 
 class ECGWidget(QWidget):
@@ -164,9 +168,31 @@ class HeartWidget(QWidget):
         p.drawPolygon(poly)
 
 
+class LikertOverlay(QLabel):
+    """Centered white text shown during Likert prompts.
+    Transparent background; ECG underneath is hidden separately.
+    """
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setStyleSheet("color: white; background: transparent;")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setWordWrap(True)
+        font = QFont("Arial", 24)
+        font.setBold(True)
+        self.setFont(font)
+        self.hide()
+
+
 class ParticipantWindow(QWidget):
     """Participant-facing display: black background, scrolling neon-red ECG
     in the middle, pulsing heart in the bottom-right corner.
+
+    During Likert prompts, the ECG is hidden and a centered text overlay
+    appears; the heart keeps beating. Key input (1-7) is forwarded to the
+    next focusable widget (PsychoPy) — this window does NOT capture them.
+
     Press F to toggle fullscreen, Esc to exit fullscreen."""
 
     def __init__(self, bus: EventBus):
@@ -174,13 +200,33 @@ class ParticipantWindow(QWidget):
         self.setWindowTitle("Biofeedback - Participant View")
         self.resize(1100, 700)
         self.setStyleSheet("background-color: black;")
+        # Prevent stealing keyboard focus from PsychoPy.
+        # Likert keys (1-7) and space should reach PsychoPy's window.
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # NOTE: WindowStaysOnTopHint는 제거 — PsychoPy ecg_renderer가 시각자극을
+        # 직접 그리므로 이 창은 실험자 모니터링용. PsychoPy 위에 떠 있으면 안 됨.
 
         self.ecg = ECGWidget(parent=self)
         self.heart = HeartWidget(parent=self)
+        self.likert = LikertOverlay(parent=self)
+        # Make sure overlay is above ECG
+        self.likert.raise_()
 
         self._bridge = _ParticipantBridge(bus)
         self._bridge.beat.connect(self.ecg.trigger_beat)
         self._bridge.beat.connect(self.heart.trigger_beat)
+        self._bridge.likert_show.connect(self._show_likert)
+        self._bridge.likert_hide.connect(self._hide_likert)
+
+    def _show_likert(self, text: str) -> None:
+        self.likert.setText(text)
+        self.ecg.setVisible(False)
+        self.likert.show()
+        self.likert.raise_()
+
+    def _hide_likert(self) -> None:
+        self.likert.hide()
+        self.ecg.setVisible(True)
 
     def resizeEvent(self, _event) -> None:  # noqa: N802 (Qt API)
         w, h = self.width(), self.height()
@@ -194,13 +240,24 @@ class ParticipantWindow(QWidget):
             heart_size,
             heart_size,
         )
+        # Likert overlay: centered, 80% width
+        overlay_w = int(w * 0.8)
+        overlay_h = int(h * 0.4)
+        self.likert.setGeometry((w - overlay_w) // 2, (h - overlay_h) // 2,
+                                overlay_w, overlay_h)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        # Only handle local fullscreen toggle; forward everything else.
         if event.key() == Qt.Key.Key_F:
             if self.isFullScreen():
                 self.showNormal()
             else:
                 self.showFullScreen()
-        elif event.key() == Qt.Key.Key_Escape:
-            if self.isFullScreen():
-                self.showNormal()
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_Escape and self.isFullScreen():
+            self.showNormal()
+            event.accept()
+            return
+        # Forward to OS so the focused window (PsychoPy) can capture it.
+        event.ignore()

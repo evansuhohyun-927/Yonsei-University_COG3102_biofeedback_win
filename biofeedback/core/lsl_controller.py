@@ -1,14 +1,19 @@
 """lsl_controller.py
-PsychoPy가 LSL로 보내는 Phase 마커를 수신해서
-biofeedback을 자동으로 제어한다.
+PsychoPy가 LSL로 보내는 마커를 수신해서 biofeedback을 자동으로 제어한다.
 
 마커 → 동작:
-    baseline   → 피험자 창 열기 + 오디오 ON
-    P1_sync    → 대기 (피험자 창 유지)
-    P2_ramp    → block_type에 따라 Fake Feedback 자동 Start
-                 (accel: +25%, decel: -25%, neutral: 아무것도 안 함)
-    P3_plateau → 대기 (Fake Feedback이 Hold 상태로 자동 유지됨)
-    P4_recovery→ Fake Feedback Stop (ramp down)
+    calibration_start  → bus.publish("calibration_request")
+                         (CalibrationRunner가 60s baseline 측정 시작)
+    baseline           → 피험자 창 열기 + 오디오 ON
+    accel|decel|neutral→ 다음 P2_ramp의 block_type 저장
+    P1_sync            → 대기
+    P2_ramp            → block_type에 따라 Fake Feedback 자동 Start
+                         (accel: +25%, decel: -25%, neutral: skip)
+    P3_plateau         → 대기 (Manipulator가 HOLD로 자동 전환)
+    P4_recovery        → Fake Feedback Stop (ramp down)
+    likert_on[:<text>] → 참가자 창 ECG 숨김 + Likert 텍스트 표시
+    likert_off         → ECG 복원
+    experiment_end     → 종료 신호
 
 사용법 (main.py 에서):
     from .core.lsl_controller import LSLController
@@ -24,7 +29,7 @@ from .manipulator import Manipulator
 from .types import FakeFeedbackParams
 
 # 프로토콜 파라미터 (PsychoPy 타이밍과 맞춤)
-RAMP_UP_S = 120.0   # Phase2: 20초 × 6회
+RAMP_UP_S = 180.0   # Phase2: 20초 × 9회 = 180s
 HOLD_S = 45.0       # Phase3
 RAMP_DOWN_S = 60.0  # Phase4
 TARGET_PCT = 25.0   # ±25%
@@ -93,31 +98,52 @@ class LSLController:
                 time.sleep(1.0)
 
     def _handle_marker(self, marker: str) -> None:
-        if marker == "baseline":
-            self._auto_open_participant()
+        # likert_on[:text] is special — split it first
+        if marker.startswith("likert_on"):
+            text = marker.split(":", 1)[1] if ":" in marker else ""
+            self.bus.publish("likert_show", text)
+            return
+
+        if marker == "likert_off":
+            self.bus.publish("likert_hide", None)
+            return
+
+        if marker == "calibration_start":
+            # 오디오만 ON (참가자 시각자극은 PsychoPy ecg_renderer가 직접 그림)
             self._auto_audio_on()
+            self.bus.publish("calibration_request", None)
+            return
 
-        elif marker == "P1_sync":
+        if marker == "experiment_end":
+            self.bus.publish("experiment_end", None)
+            return
+
+        if marker == "baseline":
+            # 시각자극은 PsychoPy에서 직접 — 오디오만 보장
+            self._auto_audio_on()
+            return
+
+        if marker == "P1_sync":
             # block_type 정보가 아직 없는 단계 — 대기
-            pass
+            return
 
-        elif marker.startswith("P2_ramp"):
-            # marker 예: "P2_ramp" — block_type은 별도 마커로 오거나
-            # PsychoPy 코드에서 block_type을 LSL로 같이 보내야 함
-            # 현재는 이전 P1_sync에서 받은 block_type 사용
+        if marker.startswith("P2_ramp"):
             self._auto_start_fake()
+            return
 
-        elif marker == "P3_plateau":
+        if marker == "P3_plateau":
             # Manipulator가 자동으로 HOLD 상태로 전환됨 — 개입 불필요
-            pass
+            return
 
-        elif marker == "P4_recovery":
+        if marker == "P4_recovery":
             self._auto_stop_fake()
+            return
 
-        elif marker in ("accel", "decel", "neutral"):
-            # block_type 마커 (PsychoPy에서 별도로 보내는 경우)
+        if marker in ("accel", "decel", "neutral"):
+            # block_type 마커 (P2_ramp 전에 도착해야 함)
             self._current_block_type = marker
             print(f"[lsl_ctrl] block_type set to: {marker}")
+            return
 
     def _auto_open_participant(self) -> None:
         """Qt 메인 스레드에서 피험자 창 열기."""
@@ -142,22 +168,21 @@ class LSLController:
             print(f"[lsl_ctrl] audio on error: {e}")
 
     def _auto_start_fake(self) -> None:
-    	if self._current_block_type == "neutral":
-        	print("[lsl_ctrl] neutral block — skipping fake feedback")
-        	return
-    	if self.manipulator.state.value != "idle":
-        	return
-    	target = TARGET_PCT if self._current_block_type == "accel" else -TARGET_PCT
-    	params = FakeFeedbackParams(
-        	target_pct=target,
-        	ramp_up_duration=RAMP_UP_S,
-        	hold_duration=HOLD_S,
-        	ramp_down_duration=RAMP_DOWN_S,
-        	curve="linear",
-    	)
-
-    self.manipulator.start_fake(params)
-    print(f"[lsl_ctrl] fake feedback started: {target:+.0f}%")
+        if self._current_block_type == "neutral":
+            print("[lsl_ctrl] neutral block — skipping fake feedback")
+            return
+        if self.manipulator.state.value != "idle":
+            return
+        target = TARGET_PCT if self._current_block_type == "accel" else -TARGET_PCT
+        params = FakeFeedbackParams(
+            target_pct=target,
+            ramp_up_duration=RAMP_UP_S,
+            hold_duration=HOLD_S,
+            ramp_down_duration=RAMP_DOWN_S,
+            curve="linear",
+        )
+        self.manipulator.start_fake(params)
+        print(f"[lsl_ctrl] fake feedback started: {target:+.0f}%")
 
     def _auto_stop_fake(self) -> None:
         self.manipulator.stop_fake(immediate=False)

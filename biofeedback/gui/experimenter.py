@@ -25,12 +25,16 @@ class _BusBridge(QObject):
     bpm_real = pyqtSignal(object)
     bpm_output = pyqtSignal(object)
     state_changed = pyqtSignal(str)
+    calibration_complete = pyqtSignal(float)
+    calibration_failed = pyqtSignal()
 
     def __init__(self, bus: EventBus):
         super().__init__()
         bus.subscribe("bpm_real", lambda s: self.bpm_real.emit(s))
         bus.subscribe("bpm_output", lambda s: self.bpm_output.emit(s))
         bus.subscribe("manipulator_state", lambda s: self.state_changed.emit(s))
+        bus.subscribe("calibration_complete", lambda bpm: self.calibration_complete.emit(float(bpm)))
+        bus.subscribe("calibration_failed", lambda _: self.calibration_failed.emit())
 
 
 class ExperimenterWindow(QMainWindow):
@@ -55,6 +59,15 @@ class ExperimenterWindow(QMainWindow):
         self._bridge.bpm_real.connect(self._on_bpm_real)
         self._bridge.bpm_output.connect(self._on_bpm_output)
         self._bridge.state_changed.connect(self._on_state)
+        self._bridge.calibration_complete.connect(self._on_calibration_complete)
+        self._bridge.calibration_failed.connect(self._on_calibration_failed)
+
+        # PsychoPy 통합용 상태
+        self._baseline_bpm: float | None = None
+        self._experiment_started = False
+        self._calib_remaining = 0
+        self._calib_timer = QTimer(self)
+        self._calib_timer.timeout.connect(self._tick_calib_countdown)
 
         self._t0 = time.time()
         self._real_t: deque[float] = deque(maxlen=4000)
@@ -79,6 +92,9 @@ class ExperimenterWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
+
+        # --- 최상단: PsychoPy 통합 패널 (실험 시작 버튼) ---
+        outer.addWidget(self._build_start_panel())
 
         # --- top: status row + main BPM plot are always visible ---
         status_row = QHBoxLayout()
@@ -118,6 +134,125 @@ class ExperimenterWindow(QMainWindow):
 
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Ready")
+
+    def _build_start_panel(self) -> QGroupBox:
+        """PsychoPy 통합 패널: Baseline 측정 → 실험 시작 (가장 눈에 띄게)."""
+        box = QGroupBox("PsychoPy 통합 — 실험 진행")
+        box.setStyleSheet(
+            "QGroupBox { font-size: 13pt; font-weight: 600; "
+            "border: 2px solid #2e7d32; border-radius: 6px; margin-top: 8px; padding-top: 8px; }"
+            "QGroupBox::title { padding: 0 8px; }"
+        )
+        v = QVBoxLayout(box)
+
+        row1 = QHBoxLayout()
+        self.start_exp_btn = QPushButton("실험 시작 →")
+        self.start_exp_btn.setMinimumHeight(60)
+        self.start_exp_btn.setStyleSheet(
+            "background-color: #2e7d32; color: white; "
+            "font-size: 16pt; font-weight: bold; padding: 8px 24px;"
+        )
+        self.start_exp_btn.setToolTip(
+            "1. 오디오 ON\n"
+            "2. Baseline 60초 측정\n"
+            "3. PsychoPy에 'experiment_start' 마커 송신\n"
+            "(참가자 시각자극은 PsychoPy 창에서 직접 표시됨)"
+        )
+        self.start_exp_btn.clicked.connect(self._on_start_exp_clicked)
+        row1.addWidget(self.start_exp_btn, stretch=2)
+
+        self.calib_status_label = QLabel("Baseline: 미측정")
+        self.calib_status_label.setStyleSheet("font-size: 12pt; padding: 0 16px;")
+        row1.addWidget(self.calib_status_label, stretch=1)
+        v.addLayout(row1)
+
+        self.start_help_label = QLabel(
+            "준비 순서: PPG 연결 → 신호 품질 확인 → 위 버튼 클릭 "
+            "(60초 calibration → PsychoPy 진행). 참가자 시각자극은 PsychoPy 창."
+        )
+        self.start_help_label.setStyleSheet("color: #555; font-size: 9pt; padding: 0 4px;")
+        self.start_help_label.setWordWrap(True)
+        v.addWidget(self.start_help_label)
+
+        return box
+
+    def _on_start_exp_clicked(self) -> None:
+        if self._experiment_started:
+            return
+        # 오디오 ON (시각자극은 PsychoPy ecg_renderer가 직접 그림)
+        # ParticipantWindow는 자동으로 안 열림 — 필요하면 '피험자 인터페이스 실행' 버튼 클릭
+        if not self.audio_btn.isChecked():
+            self.audio_btn.setChecked(True)
+        # 이미 calibration 완료된 경우 즉시 송신
+        if self._baseline_bpm is not None:
+            self._fire_experiment_start()
+            return
+        # 아직 calibration 안 됐으면 calibration_request 발행
+        # → CalibrationRunner가 30초 측정 후 calibration_complete 이벤트 발행
+        # → _on_calibration_complete 핸들러가 자동으로 _fire_experiment_start 호출
+        self.start_exp_btn.setEnabled(False)
+        self.start_exp_btn.setText("Calibrating... (60s)")
+        self.calib_status_label.setText("측정 중... 60s")
+        # 1초마다 카운트다운 갱신
+        self._calib_remaining = 60
+        self._calib_timer.start(1000)
+        self.bus.publish("calibration_request", None)
+
+    def _tick_calib_countdown(self) -> None:
+        self._calib_remaining -= 1
+        if self._calib_remaining <= 0:
+            self._calib_timer.stop()
+            self.start_exp_btn.setText("Calibrating... (마무리 중)")
+            self.calib_status_label.setText("측정 마무리 중...")
+            return
+        self.start_exp_btn.setText(f"Calibrating... ({self._calib_remaining}s)")
+        self.calib_status_label.setText(f"측정 중... {self._calib_remaining}s")
+
+    def _on_calibration_complete(self, baseline_bpm: float) -> None:
+        self._calib_timer.stop()
+        self._baseline_bpm = baseline_bpm
+        self.calib_status_label.setText(f"Baseline: {baseline_bpm:.1f} BPM")
+        # Calibration_Result outlet은 이미 자동 송신됨 (lsl_outlets.py)
+        # 이제 experiment_start 마커 송신
+        if not self._experiment_started:
+            self._fire_experiment_start()
+
+    def _on_calibration_failed(self) -> None:
+        self._calib_timer.stop()
+        QMessageBox.warning(
+            self, "Calibration 실패",
+            "60초 동안 안정적인 BPM을 측정하지 못했습니다.\n"
+            "PPG 신호를 확인하고 다시 시도하세요.",
+        )
+        self.start_exp_btn.setEnabled(True)
+        self.start_exp_btn.setText("실험 시작 →")
+        self.calib_status_label.setText("Baseline: 측정 실패")
+
+    def _fire_experiment_start(self) -> None:
+        """PsychoPy에 experiment_start 마커 송신 → PsychoPy가 다음 routine으로 진행."""
+        self._experiment_started = True
+        self.bus.publish("experiment_start_request", None)
+        self.start_exp_btn.setEnabled(False)
+        self.start_exp_btn.setStyleSheet(
+            "background-color: #888; color: white; font-size: 16pt; "
+            "font-weight: bold; padding: 8px 24px;"
+        )
+        self.start_exp_btn.setText("실험 진행 중 ✓")
+        self.statusBar().showMessage("PsychoPy 창에서 실험 진행 중 — 이 창은 모니터링용")
+        # 두 창 모두 유지하되, 이 창을 작게 + 우측 상단으로 이동해서
+        # PsychoPy 참가자 창이 잘 보이게 함
+        QTimer.singleShot(300, self._shrink_to_corner)
+
+    def _shrink_to_corner(self) -> None:
+        """ExperimenterWindow를 작게 만들고 우측 상단으로 이동."""
+        try:
+            from PyQt6.QtGui import QGuiApplication
+            screen = QGuiApplication.primaryScreen().availableGeometry()
+            new_w, new_h = 480, 360
+            self.resize(new_w, new_h)
+            self.move(screen.width() - new_w - 20, 20)
+        except Exception as _e:
+            print(f'[experimenter] shrink_to_corner error: {_e}')
 
     def _build_fake_controls(self) -> QGroupBox:
         box = QGroupBox("Fake Feedback")
@@ -446,11 +581,11 @@ class ExperimenterWindow(QMainWindow):
 # --- LSLController에서 호출하는 자동 제어 메서드 (Qt slot) ---------------
     @pyqtSlot()
     def open_participant_window_auto(self) -> None:
-	elf._open_participant_window()
-	if self.participant_window:
-		self.participant_window.setWindowState(Qt.WindowState.WindowActive)
-        	self.participant_window.raise_()
-        	self.participant_window.activateWindow()       
+        self._open_participant_window()
+        if self.participant_window:
+            self.participant_window.setWindowState(Qt.WindowState.WindowActive)
+            self.participant_window.raise_()
+            self.participant_window.activateWindow()
 
     @pyqtSlot()
     def set_audio_on(self) -> None:
