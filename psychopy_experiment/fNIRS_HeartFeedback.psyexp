@@ -813,35 +813,6 @@
         <Param val="" valType="code" updates="None" name="validator"/>
         <Param val="" valType="num" updates="constant" name="wrapWidth"/>
       </TextComponent>
-      <PolygonComponent name="pulse_circle" plugin="None">
-        <Param val="center" valType="str" updates="constant" name="anchor"/>
-        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
-        <Param val="1" valType="num" updates="constant" name="contrast"/>
-        <Param val="True" valType="bool" updates="None" name="disabled"/>
-        <Param val="False" valType="code" updates="constant" name="draggable"/>
-        <Param val="" valType="code" updates="None" name="durationEstim"/>
-        <Param val="white" valType="color" updates="constant" name="fillColor"/>
-        <Param val="linear" valType="str" updates="constant" name="interpolate"/>
-        <Param val="white" valType="color" updates="constant" name="lineColor"/>
-        <Param val="1" valType="num" updates="constant" name="lineWidth"/>
-        <Param val="4" valType="int" updates="constant" name="nVertices"/>
-        <Param val="pulse_circle" valType="code" updates="None" name="name"/>
-        <Param val="" valType="num" updates="constant" name="opacity"/>
-        <Param val="0" valType="num" updates="constant" name="ori"/>
-        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
-        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
-        <Param val="circle" valType="str" updates="None" name="shape"/>
-        <Param val="(0.08, 0.08)" valType="list" updates="constant" name="size"/>
-        <Param val="" valType="code" updates="None" name="startEstim"/>
-        <Param val="time (s)" valType="str" updates="None" name="startType"/>
-        <Param val="0.0" valType="code" updates="None" name="startVal"/>
-        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
-        <Param val="60" valType="code" updates="constant" name="stopVal"/>
-        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
-        <Param val="from exp settings" valType="str" updates="None" name="units"/>
-        <Param val="" valType="code" updates="None" name="validator"/>
-        <Param val="" valType="list" updates="constant" name="vertices"/>
-      </PolygonComponent>
       <CodeComponent name="code_p1" plugin="None">
         <Param val="" valType="extendedCode" updates="constant" name="Before Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
@@ -850,7 +821,7 @@
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
         <Param val="idx = block_loop.thisN if hasattr(block_loop, 'thisN') else 0&amp;#10;block_type = block_sequence[idx]['block_type']&amp;#10;direction = block_sequence[idx]['direction']&amp;#10;&amp;#10;# biofeedback이 P2_ramp 전에 block_type을 알아야 함 (마커 먼저 송신)&amp;#10;outlet.push_sample([block_type])     # 'accel' | 'decel' | 'neutral'&amp;#10;outlet.push_sample(['P1_sync'])&amp;#10;&amp;#10;thisExp.addData('block_type', block_type)&amp;#10;thisExp.addData('block_idx', idx)&amp;#10;thisExp.addData('phase', 'P1_sync')&amp;#10;thisExp.addData('phase_onset', core.getTime())&amp;#10;&amp;#10;try:&amp;#10;    base_bpm = float(expInfo.get('baseline_bpm', 70))&amp;#10;except:&amp;#10;    base_bpm = 70&amp;#10;current_phase_label = 'P2_ramp_end'" valType="extendedCode" updates="constant" name="Begin Routine"/>
         <Param val="Py" valType="str" updates="None" name="Code Type"/>
-        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;# FPS 측정 (1초마다 갱신)&amp;#10;_fps_frames += 1&amp;#10;_dt_fps = core.getTime() - _fps_t0&amp;#10;if _dt_fps &gt;= 1.0:&amp;#10;    _fps_cur = _fps_frames / _dt_fps&amp;#10;    _fps_frames = 0&amp;#10;    _fps_t0 = core.getTime()&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, base_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P1_sync  bpm={base_bpm:.0f}  block={block_type}  FPS={_fps_cur:.0f}'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P1_sync  ECG=None  init_err={_ecg_init_err}'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;_fps_frames += 1&amp;#10;_dt_fps = core.getTime() - _fps_t0&amp;#10;if _dt_fps &gt;= 1.0:&amp;#10;    _fps_cur = _fps_frames / _dt_fps&amp;#10;    _fps_frames = 0&amp;#10;    _fps_t0 = core.getTime()&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, base_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P1_sync  block[{idx+1}/3]={block_type}  bpm={base_bpm:.0f}  t={t:.1f}/60  FPS={_fps_cur:.0f}'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P1_sync  ECG=None  init_err={_ecg_init_err}'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
@@ -904,35 +875,6 @@
         <Param val="" valType="code" updates="None" name="validator"/>
         <Param val="" valType="num" updates="constant" name="wrapWidth"/>
       </TextComponent>
-      <PolygonComponent name="pulse_circle_mini" plugin="None">
-        <Param val="center" valType="str" updates="constant" name="anchor"/>
-        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
-        <Param val="1" valType="num" updates="constant" name="contrast"/>
-        <Param val="True" valType="bool" updates="None" name="disabled"/>
-        <Param val="False" valType="code" updates="constant" name="draggable"/>
-        <Param val="" valType="code" updates="None" name="durationEstim"/>
-        <Param val="white" valType="color" updates="constant" name="fillColor"/>
-        <Param val="linear" valType="str" updates="constant" name="interpolate"/>
-        <Param val="white" valType="color" updates="constant" name="lineColor"/>
-        <Param val="1" valType="num" updates="constant" name="lineWidth"/>
-        <Param val="4" valType="int" updates="constant" name="nVertices"/>
-        <Param val="pulse_circle_mini" valType="code" updates="None" name="name"/>
-        <Param val="" valType="num" updates="constant" name="opacity"/>
-        <Param val="0" valType="num" updates="constant" name="ori"/>
-        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
-        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
-        <Param val="circle" valType="str" updates="None" name="shape"/>
-        <Param val="(0.08, 0.08)" valType="list" updates="constant" name="size"/>
-        <Param val="" valType="code" updates="None" name="startEstim"/>
-        <Param val="time (s)" valType="str" updates="None" name="startType"/>
-        <Param val="0.0" valType="code" updates="None" name="startVal"/>
-        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
-        <Param val="20" valType="code" updates="constant" name="stopVal"/>
-        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
-        <Param val="from exp settings" valType="str" updates="None" name="units"/>
-        <Param val="" valType="code" updates="None" name="validator"/>
-        <Param val="" valType="list" updates="constant" name="vertices"/>
-      </PolygonComponent>
       <CodeComponent name="code_mini" plugin="None">
         <Param val="" valType="extendedCode" updates="constant" name="Before Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
@@ -941,7 +883,7 @@
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
         <Param val="outlet.push_sample(['P2_ramp'])   # Phase2 (ramp_loop 각 반복)&amp;#10;mini_epoch_count += 1&amp;#10;elapsed_total = (mini_epoch_count - 1) * 20&amp;#10;&amp;#10;try:&amp;#10;    base_bpm = float(expInfo.get('baseline_bpm', 70))&amp;#10;except:&amp;#10;    base_bpm = 70&amp;#10;&amp;#10;mismatch_now = min(25.0, (elapsed_total / 180.0) * 25.0)&amp;#10;&amp;#10;if block_type == 'accel':&amp;#10;    current_bpm = base_bpm * (1 + mismatch_now / 100.0)&amp;#10;elif block_type == 'decel':&amp;#10;    current_bpm = base_bpm * (1 - mismatch_now / 100.0)&amp;#10;else:&amp;#10;    mismatch_now = 0.0&amp;#10;    current_bpm = base_bpm&amp;#10;&amp;#10;thisExp.addData('phase', 'P2_ramp')&amp;#10;thisExp.addData('epoch_num', mini_epoch_count)&amp;#10;thisExp.addData('mismatch_pct', round(mismatch_now, 2))&amp;#10;thisExp.addData('current_bpm', round(current_bpm, 2))&amp;#10;thisExp.addData('block_type', block_type)&amp;#10;thisExp.addData('phase_onset', core.getTime())" valType="extendedCode" updates="constant" name="Begin Routine"/>
         <Param val="Py" valType="str" updates="None" name="Code Type"/>
-        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, current_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P2_ramp ep{mini_epoch_count}  bpm={current_bpm:.0f}  mismatch={mismatch_now:.0f}%'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P2_ramp  ECG=None  init_err={_ecg_init_err}'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, current_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P2_ramp  block[{idx+1}/3]={block_type}  ep{mini_epoch_count}/9  bpm={current_bpm:.0f}  mismatch={mismatch_now:.0f}%'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P2_ramp  ECG=None  init_err={_ecg_init_err}'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
@@ -1076,35 +1018,6 @@
         <Param val="" valType="code" updates="None" name="validator"/>
         <Param val="" valType="num" updates="constant" name="wrapWidth"/>
       </TextComponent>
-      <PolygonComponent name="pulse_circle_p3" plugin="None">
-        <Param val="center" valType="str" updates="constant" name="anchor"/>
-        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
-        <Param val="1" valType="num" updates="constant" name="contrast"/>
-        <Param val="True" valType="bool" updates="None" name="disabled"/>
-        <Param val="False" valType="code" updates="constant" name="draggable"/>
-        <Param val="" valType="code" updates="None" name="durationEstim"/>
-        <Param val="white" valType="color" updates="constant" name="fillColor"/>
-        <Param val="linear" valType="str" updates="constant" name="interpolate"/>
-        <Param val="white" valType="color" updates="constant" name="lineColor"/>
-        <Param val="1" valType="num" updates="constant" name="lineWidth"/>
-        <Param val="4" valType="int" updates="constant" name="nVertices"/>
-        <Param val="pulse_circle_p3" valType="code" updates="None" name="name"/>
-        <Param val="" valType="num" updates="constant" name="opacity"/>
-        <Param val="0" valType="num" updates="constant" name="ori"/>
-        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
-        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
-        <Param val="circle" valType="str" updates="None" name="shape"/>
-        <Param val="(0.08, 0.08)" valType="list" updates="constant" name="size"/>
-        <Param val="" valType="code" updates="None" name="startEstim"/>
-        <Param val="time (s)" valType="str" updates="None" name="startType"/>
-        <Param val="0.0" valType="code" updates="None" name="startVal"/>
-        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
-        <Param val="45" valType="code" updates="constant" name="stopVal"/>
-        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
-        <Param val="from exp settings" valType="str" updates="None" name="units"/>
-        <Param val="" valType="code" updates="None" name="validator"/>
-        <Param val="" valType="list" updates="constant" name="vertices"/>
-      </PolygonComponent>
       <CodeComponent name="phase3_plateau" plugin="None">
         <Param val="" valType="extendedCode" updates="constant" name="Before Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
@@ -1113,7 +1026,7 @@
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
         <Param val="outlet.push_sample(['P3_plateau'])&amp;#10;current_phase_label = 'P3_plateau_end'&amp;#10;&amp;#10;thisExp.addData('phase', 'P3_plateau')&amp;#10;thisExp.addData('mismatch_pct', 25.0 if block_type != 'neutral' else 0.0)&amp;#10;thisExp.addData('phase_onset', core.getTime())&amp;#10;&amp;#10;try:&amp;#10;    base_bpm = float(expInfo.get('baseline_bpm', 70))&amp;#10;except:&amp;#10;    base_bpm = 70&amp;#10;&amp;#10;if block_type == 'accel':&amp;#10;    plateau_bpm = base_bpm * 1.25&amp;#10;elif block_type == 'decel':&amp;#10;    plateau_bpm = base_bpm * 0.75&amp;#10;else:           # neutral: plateau도 base 유지&amp;#10;    plateau_bpm = base_bpm" valType="extendedCode" updates="constant" name="Begin Routine"/>
         <Param val="Py" valType="str" updates="None" name="Code Type"/>
-        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, plateau_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P3_plateau  bpm={plateau_bpm:.0f}'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P3_plateau  ECG=None'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, plateau_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P3_plateau  block[{idx+1}/3]={block_type}  bpm={plateau_bpm:.0f}  t={t:.1f}/45'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P3_plateau  ECG=None'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
@@ -1175,7 +1088,7 @@
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
         <Param val="outlet.push_sample(['P4_recovery']) # Phase4&amp;#10;thisExp.addData('phase', 'P4_recovery')&amp;#10;thisExp.addData('mismatch_pct', 0.0)&amp;#10;thisExp.addData('phase_onset', core.getTime())&amp;#10;mini_epoch_count = 0&amp;#10;try:&amp;#10;    base_bpm = float(expInfo.get('baseline_bpm', 70))&amp;#10;except Exception:&amp;#10;    base_bpm = 70" valType="extendedCode" updates="constant" name="Begin Routine"/>
         <Param val="Py" valType="str" updates="None" name="Code Type"/>
-        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, base_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P4_recovery  bpm={base_bpm:.0f}'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P4_recovery  ECG=None'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="if bpm_inlet is not None:&amp;#10;    sample, _ = bpm_inlet.pull_sample(timeout=0.0)&amp;#10;    if sample:&amp;#10;        thisExp.addData('actual_bpm', float(sample[0]))&amp;#10;        thisExp.addData('actual_bpm_t', t)&amp;#10;&amp;#10;if ecg_renderer is not None:&amp;#10;    try:&amp;#10;        ecg_renderer.update(t, base_bpm)&amp;#10;        ecg_renderer.draw()&amp;#10;        status_text.text = f'P4_recovery  block[{idx+1}/3]={block_type}  bpm={base_bpm:.0f}  t={t:.1f}/60'&amp;#10;    except Exception as _e:&amp;#10;        status_text.text = f'ECG draw error: {_e!r}'&amp;#10;else:&amp;#10;    status_text.text = f'P4_recovery  ECG=None'&amp;#10;status_text.draw()" valType="extendedCode" updates="constant" name="Each Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
