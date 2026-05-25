@@ -1,33 +1,27 @@
-"""Neon ECG line + parametric heart renderer for PsychoPy.
+"""중앙 박동 하트 렌더러 (PsychoPy용).
 
-내부에서 core.getTime() 기반 절대 시각 사용 (PsychoPy routine별 t 리셋 영향 없음).
-beat 발생 시각을 리스트로 누적 → bpm 변화해도 과거 beats 위치 고정 (튕김 없음).
-N_VERTICES=1250 (250Hz)로 R파 aliasing 방지.
+기존에는 네온 ECG 라인 + 우하단 박동 하트를 그렸으나,
+이제는 ECG 라인을 제거하고 **화면 중앙의 박동 하트**만 표시한다.
 
-사용법:
+비트 스케줄링은 절대 시각(core.getTime()) 기반으로 routine 전환에 강하며,
+bpm 변화 시 미래 박동만 새 interval로 추가됨 (과거 박동 위치 고정).
+
+사용법 (PsychoPy CodeComponent — 호출 API는 이전과 동일):
     # Welcome Begin Experiment:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import ecg_renderer
     ecg_renderer.init(win)
 
-    # Phase Each Frame (t 파라미터는 무시됨 — 내부 클럭 사용):
-    ecg_renderer.update(t, bpm)
+    # Phase Each Frame:
+    ecg_renderer.update(t, bpm)   # t 파라미터는 무시됨
     ecg_renderer.draw()
 """
 
 import math
 
-import numpy as np
 from psychopy import core as _core
 
 _state: dict = {}
-
-# 표시 윈도우 시간
-DISPLAY_WINDOW_S = 5.0
-# vertices 수 — 100Hz 해상도 (성능과 R파 표현의 균형)
-N_VERTICES = 500
-# PQRST 사이클 지속 (biofeedback ECGWidget과 동일)
-CYCLE_DURATION_S = 0.50
 
 # 모듈 로드 시점을 0으로 잡는 절대 시각 기준
 _T0 = _core.getTime()
@@ -39,75 +33,43 @@ def _now() -> float:
 
 def init(
     win,
-    ecg_width: float = 1.6,
-    ecg_height: float = 0.35,
-    ecg_pos=(0.0, 0.05),
-    heart_pos=(0.55, -0.30),
-    heart_size: float = 0.22,
+    heart_pos=(0.0, 0.0),       # 화면 중앙
+    heart_size: float = 0.45,   # 큼직하게 (height units 기준 ~45%)
+    heart_color="red",
 ) -> None:
-    """창이 만들어진 후 1회 호출."""
+    """창이 만들어진 후 1회 호출. 박동 하트만 생성."""
     from psychopy import visual
 
     _state.clear()
     _state.update(
         win=win,
-        ecg_width=ecg_width,
-        ecg_height=ecg_height,
-        ecg_pos=ecg_pos,
         heart_size=heart_size,
         heart_pos=heart_pos,
         heart_scale=1.0,
-        beats=[],            # beat이 발생한 절대 시각 (오름차순)
-        last_beat_t=-1e9,    # 마지막 beat 절대 시각
+        last_beat_t=-1e9,
         bpm=70.0,
     )
 
-    base_verts = [(-ecg_width / 2, 0), (ecg_width / 2, 0)]
-
     try:
-        _state['ecg_halo'] = visual.ShapeStim(
-            win, name='ecg_halo', closeShape=False,
-            lineWidth=16, lineColor='red',
-            opacity=0.22,
-            pos=ecg_pos, units='height',
-            vertices=base_verts, autoDraw=False,
-        )
-        print('[ecg_renderer] halo OK')
-        _state['ecg_glow'] = visual.ShapeStim(
-            win, name='ecg_glow', closeShape=False,
-            lineWidth=8, lineColor='red',
-            opacity=0.55,
-            pos=ecg_pos, units='height',
-            vertices=base_verts, autoDraw=False,
-        )
-        print('[ecg_renderer] glow OK')
-        _state['ecg_core'] = visual.ShapeStim(
-            win, name='ecg_core', closeShape=False,
-            lineWidth=2.5, lineColor='white',
-            opacity=1.0,
-            pos=ecg_pos, units='height',
-            vertices=base_verts, autoDraw=False,
-        )
-        print('[ecg_renderer] core OK')
         _state['heart_shape'] = visual.ShapeStim(
             win, name='heart_shape', closeShape=True,
-            fillColor='red', lineColor='red',
+            fillColor=heart_color, lineColor=heart_color,
             lineWidth=1.0,
             pos=heart_pos, units='height',
             vertices=_heart_vertices(heart_size),
             autoDraw=False,
         )
-        print('[ecg_renderer] heart OK')
+        print('[ecg_renderer] heart OK (centered, no ECG line)')
     except Exception as e:
-        print(f'[ecg_renderer] stim creation failed: {e!r}')
+        print(f'[ecg_renderer] heart creation failed: {e!r}')
         raise
 
-    print(f'[ecg_renderer] initialized (N_VERTICES={N_VERTICES}, '
-          f'window={DISPLAY_WINDOW_S}s, time-based)')
+    print(f'[ecg_renderer] initialized — center heart only, pos={heart_pos}, size={heart_size}')
 
 
 def _heart_vertices(size: float, n: int = 96) -> list:
-    """파라메트릭 하트 — PyQt 원본 식, PsychoPy y-up이라 부호 조정."""
+    """파라메트릭 하트 — x=16·sin³(t), y=13·cos(t)−5·cos(2t)−2·cos(3t)−cos(4t).
+    PsychoPy는 y-up 좌표계이므로 PyQt 원본의 y 부호 반전 적용."""
     scale = size / 34.0
     verts = []
     for i in range(n + 1):
@@ -121,40 +83,9 @@ def _heart_vertices(size: float, n: int = 96) -> list:
     return verts
 
 
-def _pqrst(x: float) -> float:
-    """0~1 진행도에서 PQRST 진폭 (스칼라용, 테스트 호환)."""
-    if x < 0.0 or x > 1.0:
-        return 0.0
-
-    def g(xx: float, mu: float, sigma: float) -> float:
-        return math.exp(-((xx - mu) ** 2) / (2 * sigma * sigma))
-    return (
-        0.10 * g(x, 0.18, 0.030)
-        - 0.12 * g(x, 0.40, 0.013)
-        + 1.00 * g(x, 0.46, 0.012)
-        - 0.20 * g(x, 0.52, 0.014)
-        + 0.32 * g(x, 0.74, 0.045)
-    )
-
-
-def _pqrst_vec(x: np.ndarray) -> np.ndarray:
-    """벡터화 PQRST — x: 0~1 진행도 배열."""
-    def g(xx, mu, sigma):
-        return np.exp(-((xx - mu) ** 2) / (2 * sigma * sigma))
-    y = (
-        0.10 * g(x, 0.18, 0.030)
-        - 0.12 * g(x, 0.40, 0.013)
-        + 1.00 * g(x, 0.46, 0.012)
-        - 0.20 * g(x, 0.52, 0.014)
-        + 0.32 * g(x, 0.74, 0.045)
-    )
-    # x가 [0,1] 밖이면 0
-    y = np.where((x >= 0.0) & (x <= 1.0), y, 0.0)
-    return y
-
-
 def update(t_unused: float = 0.0, bpm: float = 70.0) -> None:
-    """매 프레임 호출. t 파라미터는 무시되고 내부 절대 시각 사용 (routine 전환에 강함)."""
+    """매 프레임 호출. 내부 절대 시각 사용 (routine 전환에 강함).
+    t 파라미터는 호환 위해 받지만 사용하지 않음."""
     if 'win' not in _state:
         return
     s = _state
@@ -163,84 +94,28 @@ def update(t_unused: float = 0.0, bpm: float = 70.0) -> None:
     interval = 60.0 / bpm_safe
     s['bpm'] = bpm_safe
 
-    # 첫 호출: 과거 5초 backfill (display 즉시 가득)
-    if not s['beats']:
-        t_bf = now
-        while t_bf > now - DISPLAY_WINDOW_S - 0.1:
-            s['beats'].append(t_bf)
-            t_bf -= interval
-        s['beats'].sort()
-        s['last_beat_t'] = max(s['beats'])
-        s['heart_scale'] = 1.45
-    elif (now - s['last_beat_t']) >= interval:
-        # 정상 진행 + 갭 catch-up (이전 beats 보존, 누락분만 채움)
-        next_beat = s['last_beat_t'] + interval
-        while next_beat <= now:
-            s['beats'].append(next_beat)
-            s['last_beat_t'] = next_beat
-            next_beat += interval
-        s['heart_scale'] = 1.45
+    # 박동 트리거 (last_beat_t와의 거리가 interval 이상이면 새 박동)
+    if (now - s['last_beat_t']) >= interval:
+        s['last_beat_t'] = now
+        s['heart_scale'] = 1.45  # pop 1.45배
 
-    # 디스플레이 윈도우 밖의 오래된 beats 정리
-    cutoff = now - DISPLAY_WINDOW_S - 2.0
-    if len(s['beats']) > 1 and s['beats'][0] < cutoff:
-        s['beats'] = [b for b in s['beats'] if b >= cutoff]
-
-    # 하트 크기 감쇠 (per-frame, 18%씩)
+    # 하트 크기 감쇠 (1.45 → 1.0, 매 프레임 18%)
     s['heart_scale'] += (1.0 - s['heart_scale']) * 0.18
-    sz = s['heart_size'] * s['heart_scale']
-    s['heart_shape'].size = (sz, sz)
 
-    s['now'] = now
+    # 새 크기에 맞춰 vertices 재계산 (size에 직접 적용)
+    new_size = s['heart_size'] * s['heart_scale']
+    s['heart_shape'].vertices = _heart_vertices(new_size)
 
 
 def draw() -> None:
-    """매 프레임 update() 직후 호출. vertices 갱신 + 3-layer + 하트 그리기."""
+    """매 프레임 update() 직후 호출. 박동 하트만 그림."""
     if 'win' not in _state:
         return
-    s = _state
-    now = s.get('now', _now())
-    beats = s.get('beats', [])
-    w = s['ecg_width']
-    h = s['ecg_height']
-    window = DISPLAY_WINDOW_S
-
-    # numpy로 한 번에 계산 → 3 layers에 같은 array 재사용
-    verts = np.empty((N_VERTICES, 2), dtype=np.float32)
-    xn_arr = np.linspace(0.0, 1.0, N_VERTICES, dtype=np.float32)
-    verts[:, 0] = -w / 2 + xn_arr * w
-    sample_ts = now - window * (1.0 - xn_arr)
-
-    # beat 기반 PQRST 완전 벡터화
-    n_beats = len(beats)
-    if n_beats == 0:
-        verts[:, 1] = 0.0
-    else:
-        beats_arr = np.asarray(beats, dtype=np.float64)
-        # 각 sample_t에 대해 그 이하인 가장 큰 beat 인덱스
-        idxs = np.searchsorted(beats_arr, sample_ts, side='right') - 1
-        # 안전한 인덱스 (음수는 0으로 잡고 마스크로 제외)
-        safe_idxs = np.clip(idxs, 0, n_beats - 1)
-        deltas = sample_ts - beats_arr[safe_idxs]
-        # 유효: idx>=0 이고 0 <= delta < CYCLE_DURATION_S
-        valid_mask = (idxs >= 0) & (deltas >= 0.0) & (deltas < CYCLE_DURATION_S)
-        progress = np.where(valid_mask, deltas / CYCLE_DURATION_S, -1.0)
-        ys = _pqrst_vec(progress)
-        verts[:, 1] = (ys * h).astype(np.float32)
-
-    s['ecg_halo'].vertices = verts
-    s['ecg_glow'].vertices = verts
-    s['ecg_core'].vertices = verts
-
-    s['ecg_halo'].draw()
-    s['ecg_glow'].draw()
-    s['ecg_core'].draw()
-    s['heart_shape'].draw()
+    _state['heart_shape'].draw()
 
 
 def reset_buffer() -> None:
-    """beat history 초기화 (필요 시)."""
-    if 'beats' in _state:
-        _state['beats'] = []
+    """이전 인터페이스 호환용 (no-op + 박동 상태 초기화)."""
+    if 'last_beat_t' in _state:
         _state['last_beat_t'] = -1e9
         _state['heart_scale'] = 1.0
