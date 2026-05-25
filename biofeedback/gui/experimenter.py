@@ -229,9 +229,11 @@ class ExperimenterWindow(QMainWindow):
         self.calib_status_label.setText("Baseline: 측정 실패")
 
     def _fire_experiment_start(self) -> None:
-        """PsychoPy에 experiment_start 마커 송신 → PsychoPy가 다음 routine으로 진행."""
+        """PsychoPy에 experiment_start 마커 + baseline_bpm 송신 → 다음 routine 진행."""
         self._experiment_started = True
-        self.bus.publish("experiment_start_request", None)
+        # baseline_bpm을 마커 페이로드에 포함시켜 PsychoPy에서 결합 수신
+        bpm_to_send = self._baseline_bpm if self._baseline_bpm is not None else 70.0
+        self.bus.publish("experiment_start_request", bpm_to_send)
         self.start_exp_btn.setEnabled(False)
         self.start_exp_btn.setStyleSheet(
             "background-color: #888; color: white; font-size: 16pt; "

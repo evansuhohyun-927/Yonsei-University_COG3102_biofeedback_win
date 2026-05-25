@@ -116,10 +116,17 @@ class BiofeedbackControlOutlet:
     def stop(self) -> None:
         self._outlet = None
 
-    def _on_start(self, _data) -> None:
+    def _on_start(self, data) -> None:
         if self._outlet is not None:
-            self._outlet.push_sample(["experiment_start"])
-            print("[lsl_outlet] BiofeedbackControl pushed: experiment_start")
+            # data가 baseline_bpm float이면 'experiment_start:65.5' 형식으로 송신
+            if isinstance(data, (int, float)):
+                payload = f"experiment_start:{float(data):.2f}"
+            elif isinstance(data, str) and data:
+                payload = f"experiment_start:{data}"
+            else:
+                payload = "experiment_start"
+            self._outlet.push_sample([payload])
+            print(f"[lsl_outlet] BiofeedbackControl pushed: {payload}")
 
 
 class CalibrationResultOutlet:
