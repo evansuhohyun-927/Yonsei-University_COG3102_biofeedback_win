@@ -53,7 +53,7 @@ def _heart_vertices_normalized(n: int = 96) -> list:
 def init(
     win,
     heart_pos=(0.0, 0.0),       # 화면 중앙
-    heart_size: float = 0.45,   # height units 기준 (전체 화면 높이의 ~45%)
+    heart_size: float = 0.20,   # height units 기준 (전체 화면 높이의 ~20%)
     heart_color="red",
     pop_scale: float = 1.45,    # 박동 시 확대 배율
     decay_factor: float = 0.18, # 매 프레임 (1.0으로 가까워지는) 감쇠율
