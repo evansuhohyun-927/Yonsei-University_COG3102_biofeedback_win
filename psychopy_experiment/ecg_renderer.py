@@ -1,19 +1,20 @@
 """중앙 박동 하트 렌더러 (PsychoPy용).
 
-기존에는 네온 ECG 라인 + 우하단 박동 하트를 그렸으나,
-이제는 ECG 라인을 제거하고 **화면 중앙의 박동 하트**만 표시한다.
+ECG 라인 없이 화면 중앙의 박동 하트만 표시.
 
-비트 스케줄링은 절대 시각(core.getTime()) 기반으로 routine 전환에 강하며,
-bpm 변화 시 미래 박동만 새 interval로 추가됨 (과거 박동 위치 고정).
+설계:
+- vertices는 init 시 1회만 계산 (정규화 크기 1.0 기준)
+- 매 프레임 ShapeStim.size 속성만 갱신 → GL 버퍼 재구축 없음 (jitter 제거)
+- 비트 스케줄링은 절대 시각(core.getTime()) 기반 — routine 전환에 강함
 
-사용법 (PsychoPy CodeComponent — 호출 API는 이전과 동일):
+사용법 (PsychoPy CodeComponent):
     # Welcome Begin Experiment:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import ecg_renderer
     ecg_renderer.init(win)
 
     # Phase Each Frame:
-    ecg_renderer.update(t, bpm)   # t 파라미터는 무시됨
+    ecg_renderer.update(t, bpm)   # t 무시, 내부 절대시각 사용
     ecg_renderer.draw()
 """
 
@@ -23,7 +24,7 @@ from psychopy import core as _core
 
 _state: dict = {}
 
-# 모듈 로드 시점을 0으로 잡는 절대 시각 기준
+# 모듈 로드 시점 = 절대 시각 기준 0
 _T0 = _core.getTime()
 
 
@@ -31,47 +32,13 @@ def _now() -> float:
     return _core.getTime() - _T0
 
 
-def init(
-    win,
-    heart_pos=(0.0, 0.0),       # 화면 중앙
-    heart_size: float = 0.45,   # 큼직하게 (height units 기준 ~45%)
-    heart_color="red",
-) -> None:
-    """창이 만들어진 후 1회 호출. 박동 하트만 생성."""
-    from psychopy import visual
-
-    _state.clear()
-    _state.update(
-        win=win,
-        heart_size=heart_size,
-        heart_pos=heart_pos,
-        heart_scale=1.0,
-        last_beat_t=-1e9,
-        bpm=70.0,
-    )
-
-    try:
-        _state['heart_shape'] = visual.ShapeStim(
-            win, name='heart_shape', closeShape=True,
-            fillColor=heart_color, lineColor=heart_color,
-            lineWidth=1.0,
-            pos=heart_pos, units='height',
-            vertices=_heart_vertices(heart_size),
-            autoDraw=False,
-        )
-        print('[ecg_renderer] heart OK (centered, no ECG line)')
-    except Exception as e:
-        print(f'[ecg_renderer] heart creation failed: {e!r}')
-        raise
-
-    print(f'[ecg_renderer] initialized — center heart only, pos={heart_pos}, size={heart_size}')
-
-
-def _heart_vertices(size: float, n: int = 96) -> list:
-    """파라메트릭 하트 — x=16·sin³(t), y=13·cos(t)−5·cos(2t)−2·cos(3t)−cos(4t).
-    PsychoPy는 y-up 좌표계이므로 PyQt 원본의 y 부호 반전 적용."""
-    scale = size / 34.0
+def _heart_vertices_normalized(n: int = 96) -> list:
+    """파라메트릭 하트 (정규화 — 외접원 반지름 ~1).
+    x = 16·sin³(t), y = 13·cos(t) − 5·cos(2t) − 2·cos(3t) − cos(4t).
+    PsychoPy y-up 좌표계로 y 부호 적용."""
     verts = []
+    # 원본 y 범위는 약 -12 ~ +5, x 범위 ±16. 17로 나눠서 ±1 근처로 정규화.
+    s = 1.0 / 17.0
     for i in range(n + 1):
         t = 2 * math.pi * i / n
         x = 16 * math.sin(t) ** 3
@@ -79,13 +46,56 @@ def _heart_vertices(size: float, n: int = 96) -> list:
              - 5 * math.cos(2 * t)
              - 2 * math.cos(3 * t)
              - math.cos(4 * t))
-        verts.append((x * scale, y * scale))
+        verts.append((x * s, y * s))
     return verts
 
 
+def init(
+    win,
+    heart_pos=(0.0, 0.0),       # 화면 중앙
+    heart_size: float = 0.45,   # height units 기준 (전체 화면 높이의 ~45%)
+    heart_color="red",
+    pop_scale: float = 1.45,    # 박동 시 확대 배율
+    decay_factor: float = 0.18, # 매 프레임 (1.0으로 가까워지는) 감쇠율
+) -> None:
+    """창 생성 후 1회 호출. vertices는 1회 계산 후 고정, .size로 애니메이션."""
+    from psychopy import visual
+
+    _state.clear()
+    _state.update(
+        win=win,
+        heart_pos=heart_pos,
+        heart_base_size=float(heart_size),
+        heart_scale=1.0,
+        pop_scale=float(pop_scale),
+        decay_factor=float(decay_factor),
+        last_beat_t=-1e9,
+        bpm=70.0,
+    )
+
+    try:
+        verts = _heart_vertices_normalized()
+        shape = visual.ShapeStim(
+            win, name='heart_shape', closeShape=True,
+            fillColor=heart_color, lineColor=heart_color,
+            lineWidth=1.0,
+            pos=heart_pos, units='height',
+            vertices=verts,
+            size=(heart_size, heart_size),  # 초기 크기 설정
+            autoDraw=False,
+        )
+        _state['heart_shape'] = shape
+        print('[ecg_renderer] heart OK (vertices fixed, .size animated)')
+    except Exception as e:
+        print(f'[ecg_renderer] heart creation failed: {e!r}')
+        raise
+
+    print(f'[ecg_renderer] initialized — center heart only, '
+          f'pos={heart_pos}, base_size={heart_size}')
+
+
 def update(t_unused: float = 0.0, bpm: float = 70.0) -> None:
-    """매 프레임 호출. 내부 절대 시각 사용 (routine 전환에 강함).
-    t 파라미터는 호환 위해 받지만 사용하지 않음."""
+    """매 프레임 호출. 내부 절대 시각 + bpm으로 박동 트리거 + 크기 감쇠."""
     if 'win' not in _state:
         return
     s = _state
@@ -94,28 +104,28 @@ def update(t_unused: float = 0.0, bpm: float = 70.0) -> None:
     interval = 60.0 / bpm_safe
     s['bpm'] = bpm_safe
 
-    # 박동 트리거 (last_beat_t와의 거리가 interval 이상이면 새 박동)
+    # 박동 트리거
     if (now - s['last_beat_t']) >= interval:
         s['last_beat_t'] = now
-        s['heart_scale'] = 1.45  # pop 1.45배
+        s['heart_scale'] = s['pop_scale']
 
-    # 하트 크기 감쇠 (1.45 → 1.0, 매 프레임 18%)
-    s['heart_scale'] += (1.0 - s['heart_scale']) * 0.18
+    # 감쇠: scale → 1.0으로 매끄럽게 수렴
+    s['heart_scale'] += (1.0 - s['heart_scale']) * s['decay_factor']
 
-    # 새 크기에 맞춰 vertices 재계산 (size에 직접 적용)
-    new_size = s['heart_size'] * s['heart_scale']
-    s['heart_shape'].vertices = _heart_vertices(new_size)
+    # .size 속성만 갱신 (vertices는 그대로) — jitter 제거
+    sz = s['heart_base_size'] * s['heart_scale']
+    s['heart_shape'].size = (sz, sz)
 
 
 def draw() -> None:
-    """매 프레임 update() 직후 호출. 박동 하트만 그림."""
+    """매 프레임 update() 직후 호출."""
     if 'win' not in _state:
         return
     _state['heart_shape'].draw()
 
 
 def reset_buffer() -> None:
-    """이전 인터페이스 호환용 (no-op + 박동 상태 초기화)."""
+    """이전 API 호환 (no-op + 박동 상태 초기화)."""
     if 'last_beat_t' in _state:
         _state['last_beat_t'] = -1e9
         _state['heart_scale'] = 1.0
