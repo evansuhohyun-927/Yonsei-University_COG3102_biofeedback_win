@@ -213,6 +213,66 @@ def get_real_bpm() -> float:
     return float(_state.get('real_bpm', 70.0))
 
 
+# --- 조작량 로깅 (블록별 증가/감소 정도 기록용) --------------------------------
+
+def get_target_pct() -> float:
+    """현재 블록의 '목표' 조작 비율(%). 부호 포함: accel=+25, decel=-25, neutral=0.
+
+    매 블록 시작(set_block_type) 이후의 설계상 목표값. 실제 ramp 진행 중의
+    순간 적용량은 get_manipulation_pct()를 사용."""
+    bt = _state.get('current_block_type', 'neutral')
+    if bt == 'accel':
+        return float(TARGET_PCT)
+    if bt == 'decel':
+        return -float(TARGET_PCT)
+    return 0.0
+
+
+def get_manipulation_pct() -> float:
+    """현재 '실제로' 적용 중인 조작 비율(%). 부호 포함 (+증가 / -감소).
+
+    Manipulator factor 기준 — ramp_up 동안 0→target, hold에서 target,
+    ramp_down 동안 target→0으로 변함. idle이면 0."""
+    m = _state.get('manipulator')
+    if m is None:
+        return 0.0
+    try:
+        return float(m.get_status().get('manip_pct', 0.0))
+    except Exception:
+        return 0.0
+
+
+def get_manipulator_state() -> str:
+    """Manipulator 상태 문자열: 'idle' / 'ramp_up' / 'hold' / 'ramp_down'."""
+    m = _state.get('manipulator')
+    if m is None:
+        return 'idle'
+    try:
+        return str(m.get_status().get('state', 'idle'))
+    except Exception:
+        return 'idle'
+
+
+def get_manip_status() -> dict:
+    """조작 상태 전체 dict: {state, manip_pct(실측 적용%), target_pct(목표%),
+    block_type, direction}. 한 번에 로깅하기 편하도록 제공."""
+    bt = _state.get('current_block_type', 'neutral')
+    direction = {'accel': 'increase', 'decel': 'decrease'}.get(bt, 'none')
+    m = _state.get('manipulator')
+    base = {'state': 'idle', 'manip_pct': 0.0, 'target_pct': get_target_pct()}
+    if m is not None:
+        try:
+            st = m.get_status()
+            base['state'] = st.get('state', 'idle')
+            base['manip_pct'] = float(st.get('manip_pct', 0.0))
+            base['target_pct'] = float(st.get('target_pct', get_target_pct()))
+        except Exception:
+            pass
+    base['block_type'] = bt
+    base['direction'] = direction
+    return base
+
+
 # --- 소리 ON/OFF (실험자 설정 화면 [S]) --------------------------------------
 
 def is_audio_on() -> bool:

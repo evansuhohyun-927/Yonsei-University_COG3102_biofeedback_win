@@ -129,5 +129,23 @@ class Manipulator:
                 self.bus.publish("manipulator_state", state_change)
             time.sleep(self._update_period)
 
+    def get_status(self) -> dict:
+        """Thread-safe snapshot of the current manipulation.
+
+        manip_pct  : signed % actually applied right now (+increase / -decrease),
+                     i.e. factor*100 where output_bpm = real_bpm * (1 + factor).
+        target_pct : signed target % for the active fake-feedback episode (0 if idle).
+        state      : 'idle' / 'ramp_up' / 'hold' / 'ramp_down'.
+        """
+        with self._lock:
+            now = time.time()
+            factor = self._compute_factor_unsafe(now)
+            target = float(self.params.target_pct) if self.params is not None else 0.0
+            return {
+                'state': self.state.value,
+                'manip_pct': factor * 100.0,
+                'target_pct': target,
+            }
+
     def stop(self) -> None:
         self._running = False
