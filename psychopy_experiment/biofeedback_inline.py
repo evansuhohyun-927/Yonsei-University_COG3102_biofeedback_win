@@ -68,6 +68,7 @@ _state: dict = {
     'calibration_runner': None,
     'audio': None,
     'audio_on': False,
+    'audio_device_index': None,
     'output_bpm': 70.0,
     'real_bpm': 70.0,
     'baseline_bpm': None,
@@ -131,7 +132,12 @@ def start(source: str = 'mock', ppg_port: str = '', ppg_baud: int = 115200,
     # (start/stop 반복은 네이티브 크래시 위험이라 mute 방식 사용)
     try:
         from biofeedback.feedback.audio import AudioFeedback
-        audio = AudioFeedback(bus, mode='heartbeat', thump_gain=0.9)
+        # 실제 심박 녹음 파일 사용 (없으면 합성음으로 자동 폴백)
+        _beat_path = os.path.join(_project, 'biofeedback', 'assets', 'heartbeat.mp3')
+        if not os.path.exists(_beat_path):
+            _beat_path = None
+        audio = AudioFeedback(bus, mode='heartbeat', thump_gain=1.0,  # 최대 볼륨
+                              beat_sound_path=_beat_path)
         audio.start()
         audio.set_muted(not audio_on)
         _state['audio'] = audio
@@ -296,6 +302,68 @@ def toggle_audio() -> bool:
     """소리 ON/OFF 토글. 현재 상태(bool) 반환."""
     set_audio(not is_audio_on())
     return is_audio_on()
+
+
+# --- 오디오 출력 장치 선택 (실험자 설정 화면 [D]) ----------------------------
+
+def list_audio_devices() -> list:
+    """이름 기준으로 중복 제거된 출력 장치 목록."""
+    audio = _state.get('audio')
+    if audio is None:
+        return []
+    try:
+        return audio.list_output_devices()
+    except Exception as e:
+        print(f'[bf_inline] list_audio_devices failed: {e}')
+        return []
+
+
+def get_audio_device_name() -> str:
+    """현재 소리가 나가는 출력 장치 이름."""
+    audio = _state.get('audio')
+    if audio is None:
+        return '없음'
+    try:
+        return audio.current_device_name()
+    except Exception:
+        return '알 수 없음'
+
+
+def set_audio_device(index) -> bool:
+    """출력 장치를 index로 전환(스트림 재오픈). 성공 여부 반환."""
+    audio = _state.get('audio')
+    if audio is None:
+        return False
+    try:
+        ok = bool(audio.set_device(index))
+        if ok:
+            _state['audio_device_index'] = index
+        return ok
+    except Exception as e:
+        print(f'[bf_inline] set_audio_device failed: {e}')
+        return False
+
+
+def cycle_audio_device() -> str:
+    """다음 출력 장치로 전환하고 새 장치 이름 반환 (실험자 [D]).
+    이어폰으로 소리를 보내려면 이어폰 장치가 나올 때까지 [D]를 반복.
+    열기 실패하는 장치(다른 앱이 점유한 배타 모드 등)는 건너뛴다."""
+    audio = _state.get('audio')
+    if audio is None:
+        return '없음'
+    devs = list_audio_devices()
+    if not devs:
+        return get_audio_device_name()
+    indices = [d['index'] for d in devs]
+    cur = _state.get('audio_device_index', None)
+    start = indices.index(cur) + 1 if cur in indices else 0
+    n = len(indices)
+    for off in range(n):
+        cand = indices[(start + off) % n]
+        if set_audio_device(cand):
+            return get_audio_device_name()
+    # 어느 장치도 열리지 않으면 현재 상태 유지
+    return get_audio_device_name()
 
 
 # --- 포트 연결 새로고침/확인 (실험자 설정 화면 [R]) -------------------------
