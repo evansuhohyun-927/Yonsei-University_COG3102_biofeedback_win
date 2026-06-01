@@ -67,12 +67,15 @@ _state: dict = {
     'source_manager': None,
     'calibration_runner': None,
     'audio': None,
+    'audio_on': False,
     'output_bpm': 70.0,
     'real_bpm': 70.0,
     'baseline_bpm': None,
     'calibration_running': False,
     'calibration_failed': False,
     'current_block_type': 'neutral',
+    'ppg_port': '',
+    'ppg_baud': 115200,
 }
 
 
@@ -81,6 +84,9 @@ def start(source: str = 'mock', ppg_port: str = '', ppg_baud: int = 115200,
     """Before Experiment에서 1회 호출."""
     if _state['started']:
         return
+
+    _state['ppg_port'] = ppg_port
+    _state['ppg_baud'] = ppg_baud
 
     bus = EventBus()
     _state['bus'] = bus
@@ -121,16 +127,20 @@ def start(source: str = 'mock', ppg_port: str = '', ppg_baud: int = 115200,
         source_manager.set_source(MockHRSource(bus), 'mock')
         print('[bf_inline] mock HR source (70 BPM sine)')
 
-    # 오디오 (실패해도 진행)
-    if audio_on:
-        try:
-            from biofeedback.feedback.audio import AudioFeedback
-            audio = AudioFeedback(bus, mode='heartbeat', thump_gain=0.9)
-            audio.start()
-            _state['audio'] = audio
-            print('[bf_inline] audio ON')
-        except Exception as e:
-            print(f'[bf_inline] audio init failed: {e}')
+    # 오디오 — 스트림은 항상 열어두고 음소거로 on/off 제어
+    # (start/stop 반복은 네이티브 크래시 위험이라 mute 방식 사용)
+    try:
+        from biofeedback.feedback.audio import AudioFeedback
+        audio = AudioFeedback(bus, mode='heartbeat', thump_gain=0.9)
+        audio.start()
+        audio.set_muted(not audio_on)
+        _state['audio'] = audio
+        _state['audio_on'] = bool(audio_on)
+        print(f'[bf_inline] audio stream up (on={audio_on})')
+    except Exception as e:
+        _state['audio'] = None
+        _state['audio_on'] = False
+        print(f'[bf_inline] audio init failed: {e}')
 
     _state['started'] = True
     print('[bf_inline] started')
@@ -201,6 +211,104 @@ def get_output_bpm() -> float:
 def get_real_bpm() -> float:
     """현재 실측 BPM (로깅용)."""
     return float(_state.get('real_bpm', 70.0))
+
+
+# --- 소리 ON/OFF (실험자 설정 화면 [S]) --------------------------------------
+
+def is_audio_on() -> bool:
+    return bool(_state.get('audio_on', False)) and _state.get('audio') is not None
+
+
+def set_audio(on: bool) -> None:
+    """오디오 스트림은 유지한 채 음소거만 토글 (스트림 churn 방지)."""
+    audio = _state.get('audio')
+    if audio is None:
+        _state['audio_on'] = False
+        return
+    try:
+        audio.set_muted(not on)
+        _state['audio_on'] = bool(on)
+    except Exception as e:
+        print(f'[bf_inline] set_audio failed: {e}')
+
+
+def toggle_audio() -> bool:
+    """소리 ON/OFF 토글. 현재 상태(bool) 반환."""
+    set_audio(not is_audio_on())
+    return is_audio_on()
+
+
+# --- 포트 연결 새로고침/확인 (실험자 설정 화면 [R]) -------------------------
+
+def list_ports() -> list:
+    """사용 가능한 시리얼(COM) 포트 목록."""
+    try:
+        from biofeedback.hr_sources.ppg_serial import list_serial_ports
+        return list_serial_ports()
+    except Exception:
+        return []
+
+
+def get_source_status() -> dict:
+    """현재 HR 소스 연결 상태 dict."""
+    sm = _state.get('source_manager')
+    if sm is None or getattr(sm, 'current', None) is None:
+        return {'kind': None, 'connected': False, 'detail': '소스 없음'}
+    src = sm.current
+    kind = getattr(sm, 'kind', None)
+    if hasattr(src, 'get_status'):
+        try:
+            st = src.get_status()
+            st['kind'] = kind
+            return st
+        except Exception as e:
+            return {'kind': kind, 'connected': False, 'detail': f'상태 조회 실패: {e}'}
+    return {'kind': kind, 'connected': True, 'detail': 'mock (70 BPM)'}
+
+
+def refresh_source() -> dict:
+    """포트 연결 재확인/재시도.
+
+    - PPG 모드: 연결 안 돼 있으면 재연결 시도, 결과 dict 반환
+    - mock 모드: 사용 가능한 COM 포트 스캔 결과 반환
+    """
+    sm = _state.get('source_manager')
+    bus = _state.get('bus')
+    if sm is None:
+        return {'connected': False, 'detail': '아직 시작 안 됨'}
+
+    port = str(_state.get('ppg_port', '') or '').strip()
+    if not port:
+        ports = list_ports()
+        detail = ('감지된 포트: ' + ', '.join(ports)) if ports else '감지된 시리얼 포트 없음'
+        return {'connected': True, 'kind': 'mock', 'ports': ports, 'detail': detail}
+
+    # PPG 모드
+    src = getattr(sm, 'current', None)
+    connected = False
+    try:
+        if src is not None and hasattr(src, 'is_connected'):
+            connected = bool(src.is_connected())
+    except Exception:
+        connected = False
+
+    if connected:
+        st = get_source_status()
+        sr = st.get('observed_sample_rate', 0.0) or 0.0
+        return {'connected': True, 'kind': 'ppg', 'port': port,
+                'detail': f'{port} 연결됨 (~{sr:.0f} Hz)'}
+
+    # 재연결 시도
+    try:
+        from biofeedback.hr_sources.ppg_serial import PPGSerialSource
+        new_src = PPGSerialSource(bus, port=port,
+                                  baudrate=int(_state.get('ppg_baud', 115200)))
+        sm.set_source(new_src, 'ppg')  # start() 내부에서 실패 시 예외
+        return {'connected': True, 'kind': 'ppg', 'port': port,
+                'detail': f'{port} 연결 성공'}
+    except Exception as e:
+        return {'connected': False, 'kind': 'ppg', 'port': port,
+                'detail': f'{port} 연결 실패: {e}'}
 
 
 def stop() -> None:

@@ -41,6 +41,7 @@ class AudioFeedback:
         # Each active thump tracks how many samples of the waveform we've already emitted.
         self._active_thumps: list[int] = []
         self._stream: sd.OutputStream | None = None
+        self._muted = False
 
         bus.subscribe("beat", self._on_beat)
         bus.subscribe("bpm_output", self._on_bpm)
@@ -80,6 +81,17 @@ class AudioFeedback:
             if mode == "tone":
                 self._active_thumps = []
 
+    def set_muted(self, muted: bool) -> None:
+        """Silence output without tearing down the PortAudio stream.
+        Toggling mute (instead of stop/start) avoids repeated stream
+        open/close, which is a known native-crash source."""
+        with self._lock:
+            self._muted = bool(muted)
+
+    def is_muted(self) -> bool:
+        with self._lock:
+            return self._muted
+
     def _on_beat(self, _ts) -> None:
         with self._lock:
             if self.mode in ("heartbeat", "both"):
@@ -102,6 +114,7 @@ class AudioFeedback:
             bpm = self._current_bpm
             thumps_to_play = self._active_thumps
             self._active_thumps = []  # we will repopulate with leftovers below
+            muted = self._muted
 
         out = np.zeros(frames, dtype=np.float32)
 
@@ -123,6 +136,8 @@ class AudioFeedback:
                 if remaining > frames:
                     still_active.append(idx + frames)
 
+        if muted:
+            out[:] = 0.0
         np.clip(out, -1.0, 1.0, out=out)
         outdata[:, 0] = out
 
