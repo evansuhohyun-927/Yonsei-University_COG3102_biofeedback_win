@@ -1446,7 +1446,7 @@
         <Param val="" valType="extendedCode" updates="constant" name="Begin Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
         <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
-        <Param val="maia_slider.reset()" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="event.clearEvents()  # 직전 Likert(1~7) 잔여 키가 문항1을 스킵시키는 문제 방지&amp;#10;maia_slider.reset()" valType="extendedCode" updates="constant" name="Begin Routine"/>
         <Param val="Py" valType="str" updates="None" name="Code Type"/>
         <Param val="keys = event.getKeys(['0','1','2','3','4','5'])&amp;#10;if keys:&amp;#10;    maia_slider.rating = int(keys[0])&amp;#10;    maia_slider.markerPos = int(keys[0])&amp;#10;    continueRoutine = False" valType="extendedCode" updates="constant" name="Each Frame"/>
         <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
