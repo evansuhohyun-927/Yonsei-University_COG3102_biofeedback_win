@@ -32,6 +32,8 @@ PsychoPy가 직접 biofeedback 코어를 import해서 사용하는 모듈.
     bf.stop()
 """
 
+import csv
+import datetime
 import os
 import sys
 import threading
@@ -58,6 +60,62 @@ HOLD_S = 45.0        # Phase3
 RAMP_DOWN_S = 60.0   # Phase4
 TARGET_PCT = 25.0
 
+# ── 마커 코드 표 (fNIRS SNIRF aux1 삽입용 숫자 코드) ──────────────────────────
+# PsychoPy가 push하는 마커 문자열 → 숫자 코드. 이벤트 CSV의 'code' 열로 저장되어
+# snirf_marker_editor 의 code_column 으로 그대로 사용된다.
+# 표에 없는 라벨은 200번부터 자동 배정된다(_code_for).
+MARKER_CODES = {
+    'experiment_start': 1,   # 로깅 시작 앵커 (onset 0)
+    'stabilization': 2,      # 안정화 휴식
+    'baseline': 3,           # 베이스라인
+    'rest': 4,               # 블록 간 휴식
+    'rest_between_blocks': 4,
+    # 블록 유형 (Phase1_Sync 시작 시 P1_sync보다 먼저 push됨)
+    'accel': 11,
+    'decel': 12,
+    'neutral': 13,
+    # 페이즈
+    'P1_sync': 21,
+    'P2_ramp': 22,           # 미니 epoch마다(9회) push → 20s 간격 마커
+    'P3_plateau': 23,
+    'P4_recovery': 24,
+    # Likert (블록 내)
+    'likert_on': 31,
+    'likert_off': 32,
+    # 사후 설문
+    'postexp_bpm': 41,
+    'postexp_trust': 42,
+    'maia_start': 43,
+    # 종료
+    'experiment_end': 99,
+    'logging_end': 100,
+}
+
+# 마커 라벨 중 '현재 페이즈' 컨텍스트를 갱신하는 것들
+_PHASE_LABELS = {
+    'stabilization', 'baseline', 'P1_sync', 'P2_ramp', 'P3_plateau',
+    'P4_recovery', 'rest', 'rest_between_blocks', 'experiment_end',
+}
+
+# 로깅 서브시스템 상태 (start_logging/stop_logging가 관리)
+_log_lock = threading.Lock()
+_log: dict = {
+    'active': False,
+    't0_perf': None,
+    't0_unix': None,
+    'events_file': None,
+    'events_writer': None,
+    'bpm_file': None,
+    'bpm_writer': None,
+    'bpm_thread': None,
+    'bpm_stop': None,
+    'events_path': None,
+    'bpm_path': None,
+    'period': 1.0,
+    'auto_codes': {},
+    'next_auto_code': 200,
+}
+
 _state: dict = {
     'started': False,
     'bus': None,
@@ -75,9 +133,75 @@ _state: dict = {
     'calibration_running': False,
     'calibration_failed': False,
     'current_block_type': 'neutral',
+    'current_phase': '',
     'ppg_port': '',
     'ppg_baud': 115200,
 }
+
+
+# PPG 보드 식별용 VID (랩 자체 PPG = SEGGER J-Link 기반 보드)
+_KNOWN_PPG_VIDS = {0x1366}
+
+
+def _looks_like_ppg(port: str, baud: int = 115200, sniff_s: float = 0.8) -> bool:
+    """포트를 잠깐 열어 숫자 ASCII 라인이 흐르는지 확인 (PPG raw 스트림 판별)."""
+    try:
+        import serial
+        s = serial.Serial(port, baud, timeout=0.5)
+    except Exception:
+        return False
+    try:
+        time.sleep(0.2)
+        try:
+            s.reset_input_buffer()
+        except Exception:
+            pass
+        t0 = time.time()
+        good = total = 0
+        buf = b''
+        while time.time() - t0 < sniff_s:
+            chunk = s.read(128)
+            if not chunk:
+                continue
+            buf += chunk
+            while b'\n' in buf:
+                line, buf = buf.split(b'\n', 1)
+                total += 1
+                try:
+                    float(line.decode('utf-8', 'ignore').strip())
+                    good += 1
+                except Exception:
+                    pass
+        return total >= 3 and good >= max(3, int(0.6 * total))
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+
+def _autodetect_ppg_port(baud: int = 115200) -> str | None:
+    """연결된 PPG 시리얼 포트를 자동 탐지.
+    1) 알려진 PPG 보드 VID(SEGGER 0x1366)가 단 하나면 즉시 사용(보드 리셋 최소화).
+    2) 그 외에는 숫자 ASCII 스트림이 흐르는 포트를 sniff로 찾음.
+    """
+    try:
+        from serial.tools import list_ports
+    except Exception:
+        return None
+    ports = list(list_ports.comports())
+    if not ports:
+        return None
+    known = [p for p in ports if getattr(p, 'vid', None) in _KNOWN_PPG_VIDS]
+    if len(known) == 1:
+        return known[0].device  # 단일 매칭 → sniff 생략(연결 시 보드 리셋 방지)
+    for p in (known or ports):
+        try:
+            if _looks_like_ppg(p.device, baud):
+                return p.device
+        except Exception:
+            continue
+    return known[0].device if known else None
 
 
 def start(source: str = 'mock', ppg_port: str = '', ppg_baud: int = 115200,
@@ -114,18 +238,34 @@ def start(source: str = 'mock', ppg_port: str = '', ppg_baud: int = 115200,
     bus.subscribe('calibration_complete', _on_calibration_complete)
     bus.subscribe('calibration_failed', _on_calibration_failed)
 
-    # HR source 선택
-    if source == 'ppg' and ppg_port:
+    # HR source 선택 — source='mock' 명시가 아니면 PPG 자동 탐지/연결 시도
+    want_ppg = (source != 'mock')
+    detected_port = None
+    if want_ppg:
+        p = str(ppg_port or '').strip()
+        if p and p.lower() != 'auto':
+            detected_port = p  # 실험자가 명시한 포트 그대로
+        else:
+            detected_port = _autodetect_ppg_port(ppg_baud)
+            if detected_port:
+                print(f'[bf_inline] PPG 자동 탐지: {detected_port}')
+            else:
+                print('[bf_inline] PPG 자동 탐지 실패 — 연결된 PPG 포트 없음')
+
+    if want_ppg and detected_port:
         try:
             from biofeedback.hr_sources.ppg_serial import PPGSerialSource
-            src = PPGSerialSource(bus, port=ppg_port, baudrate=ppg_baud)
+            src = PPGSerialSource(bus, port=detected_port, baudrate=ppg_baud)
             source_manager.set_source(src, 'ppg')
-            print(f'[bf_inline] PPG source on {ppg_port}@{ppg_baud}')
+            _state['ppg_port'] = detected_port
+            print(f'[bf_inline] PPG source on {detected_port}@{ppg_baud}')
         except Exception as e:
             print(f'[bf_inline] PPG init failed ({e}) — fallback mock')
             source_manager.set_source(MockHRSource(bus), 'mock')
+            _state['ppg_port'] = ''
     else:
         source_manager.set_source(MockHRSource(bus), 'mock')
+        _state['ppg_port'] = ''
         print('[bf_inline] mock HR source (70 BPM sine)')
 
     # 오디오 — 스트림은 항상 열어두고 음소거로 on/off 제어
@@ -279,6 +419,217 @@ def get_manip_status() -> dict:
     return base
 
 
+# --- 데이터 로깅 (PPG BPM 1Hz 시계열 + 이벤트 마커 CSV) ----------------------
+#
+# start_logging(base_path) 호출 시 두 개의 CSV가 생성된다.
+#   {base}_ppg_bpm.csv  : 1초마다 실측/조작 BPM, 조작량, 페이즈/블록을 기록
+#   {base}_events.csv    : 키 입력·페이즈 전환 등 이벤트 마커(onset, code, ...)
+#                          → snirf_marker_editor 로 .snirf aux1 에 삽입 가능
+#
+# onset(초)은 start_logging 시점(=onset 0)을 기준으로 한다. fNIRS(NIRSIT)를
+# 먼저 켰다면 그 시작 차이만큼 snirf_marker_editor 의 onset_offset 으로 보정한다.
+
+
+def _code_for(base_label: str) -> int:
+    """마커 라벨 → 숫자 코드. 표에 없으면 200번부터 자동 배정."""
+    if base_label in MARKER_CODES:
+        return int(MARKER_CODES[base_label])
+    ac = _log['auto_codes']
+    if base_label not in ac:
+        ac[base_label] = _log['next_auto_code']
+        _log['next_auto_code'] += 1
+    return int(ac[base_label])
+
+
+def start_logging(base_path=None, bpm_period_s: float = 1.0) -> dict:
+    """본 실험 시작 시 1회 호출. 두 CSV를 열고 1Hz BPM 기록 스레드를 가동.
+
+    base_path : PsychoPy의 thisExp.dataFileName(확장자 없는 경로)을 주면
+                {base}_ppg_bpm.csv / {base}_events.csv 로 저장된다.
+                None이면 현재 폴더에 타임스탬프 이름으로 생성.
+    """
+    if _log['active']:
+        return get_log_paths()
+
+    if base_path:
+        base = str(base_path)
+    else:
+        base = os.path.join(
+            os.getcwd(),
+            'bf_log_' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
+
+    events_path = base + '_events.csv'
+    bpm_path = base + '_ppg_bpm.csv'
+    d = os.path.dirname(events_path)
+    if d and not os.path.isdir(d):
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception:
+            pass
+
+    t0_perf = time.perf_counter()
+    t0_unix = time.time()
+
+    # utf-8-sig(BOM) → Excel에서 한글 깨짐 방지
+    ev_file = open(events_path, 'w', newline='', encoding='utf-8-sig')
+    ev_writer = csv.writer(ev_file)
+    ev_writer.writerow(['onset', 'code', 'label', 'value',
+                        'block_type', 'phase', 'unix_time', 'iso_time'])
+    ev_file.flush()
+
+    bpm_file = open(bpm_path, 'w', newline='', encoding='utf-8-sig')
+    bpm_writer = csv.writer(bpm_file)
+    bpm_writer.writerow(['t_sec', 'unix_time', 'iso_time',
+                         'real_bpm', 'output_bpm', 'manip_pct',
+                         'manip_state', 'block_type', 'phase'])
+    bpm_file.flush()
+
+    _log.update({
+        't0_perf': t0_perf,
+        't0_unix': t0_unix,
+        'events_file': ev_file,
+        'events_writer': ev_writer,
+        'bpm_file': bpm_file,
+        'bpm_writer': bpm_writer,
+        'events_path': events_path,
+        'bpm_path': bpm_path,
+        'period': max(0.05, float(bpm_period_s)),
+        'active': True,
+    })
+
+    iso0 = datetime.datetime.fromtimestamp(t0_unix).isoformat(timespec='milliseconds')
+    print(f'[bf_inline] logging 시작: onset 0 = {iso0} (unix={t0_unix:.3f})')
+    print(f'[bf_inline]   events: {events_path}')
+    print(f'[bf_inline]   bpm   : {bpm_path}')
+
+    # onset 0 앵커 마커
+    log_marker('experiment_start')
+
+    stop_evt = threading.Event()
+    th = threading.Thread(target=_bpm_log_loop, args=(stop_evt,), daemon=True)
+    _log['bpm_stop'] = stop_evt
+    _log['bpm_thread'] = th
+    th.start()
+    return get_log_paths()
+
+
+def log_marker(label, value=None, code=None) -> None:
+    """이벤트 마커 1건을 events CSV에 기록.
+
+    label : 마커 문자열. 'likert_on:질문…' 처럼 ':'가 있으면 앞부분이 라벨,
+            뒷부분이 value로 분리 저장된다.
+    value : 부가 정보(예: Likert 응답값). 생략 가능.
+    code  : 강제 코드. None이면 MARKER_CODES/자동배정으로 결정.
+    """
+    if not _log['active']:
+        return
+    raw = str(label)
+    base = raw
+    if ':' in raw:
+        base, _, rest = raw.partition(':')
+        if value is None:
+            value = rest
+    base = base.strip()
+
+    c = int(code) if code is not None else _code_for(base)
+    onset = time.perf_counter() - _log['t0_perf']
+    unix = time.time()
+    iso = datetime.datetime.fromtimestamp(unix).isoformat(timespec='milliseconds')
+
+    # 페이즈/블록 컨텍스트 갱신
+    if base in _PHASE_LABELS:
+        _state['current_phase'] = base
+    if base in ('accel', 'decel', 'neutral'):
+        _state['current_block_type'] = base
+    bt = _state.get('current_block_type', '')
+    ph = _state.get('current_phase', '')
+
+    with _log_lock:
+        w = _log['events_writer']
+        f = _log['events_file']
+        if w is not None and f is not None:
+            try:
+                w.writerow([f'{onset:.3f}', c, base,
+                            ('' if value is None else value), bt, ph,
+                            f'{unix:.3f}', iso])
+                f.flush()
+            except Exception as e:
+                print(f'[bf_inline] log_marker write err: {e!r}')
+
+
+def _bpm_log_loop(stop_evt: threading.Event) -> None:
+    """1초마다 BPM/조작량을 bpm CSV에 기록하는 데몬 스레드."""
+    period = _log['period']
+    while not stop_evt.wait(period):
+        try:
+            onset = time.perf_counter() - _log['t0_perf']
+            unix = time.time()
+            iso = datetime.datetime.fromtimestamp(unix).isoformat(
+                timespec='milliseconds')
+            rb = get_real_bpm()
+            ob = get_output_bpm()
+            mp = get_manipulation_pct()
+            ms = get_manipulator_state()
+            bt = _state.get('current_block_type', '')
+            ph = _state.get('current_phase', '')
+            with _log_lock:
+                w = _log['bpm_writer']
+                f = _log['bpm_file']
+                if w is not None and f is not None:
+                    w.writerow([f'{onset:.3f}', f'{unix:.3f}', iso,
+                                f'{rb:.2f}', f'{ob:.2f}', f'{mp:.2f}',
+                                ms, bt, ph])
+                    f.flush()
+        except Exception as e:
+            print(f'[bf_inline] bpm log err: {e!r}')
+
+
+def stop_logging() -> None:
+    """로깅 종료 — 스레드 정지 + 파일 닫기. stop()에서 자동 호출됨."""
+    if not _log['active']:
+        return
+    try:
+        log_marker('logging_end')
+    except Exception:
+        pass
+    se = _log.get('bpm_stop')
+    if se is not None:
+        se.set()
+    th = _log.get('bpm_thread')
+    if th is not None:
+        try:
+            th.join(timeout=2.0)
+        except Exception:
+            pass
+    with _log_lock:
+        for k in ('events_file', 'bpm_file'):
+            fobj = _log.get(k)
+            if fobj is not None:
+                try:
+                    fobj.flush()
+                    fobj.close()
+                except Exception:
+                    pass
+        _log['events_writer'] = None
+        _log['bpm_writer'] = None
+        _log['events_file'] = None
+        _log['bpm_file'] = None
+    _log['active'] = False
+    print('[bf_inline] logging stopped')
+
+
+def is_logging() -> bool:
+    return bool(_log.get('active', False))
+
+
+def get_log_paths() -> dict:
+    return {
+        'events': _log.get('events_path'),
+        'bpm': _log.get('bpm_path'),
+        'active': bool(_log.get('active', False)),
+    }
+
+
 # --- 소리 ON/OFF (실험자 설정 화면 [S]) --------------------------------------
 
 def is_audio_on() -> bool:
@@ -377,6 +728,20 @@ def list_ports() -> list:
         return []
 
 
+def get_active_port() -> str:
+    """실제 연결된 PPG 포트명. mock이면 빈 문자열."""
+    sm = _state.get('source_manager')
+    if sm is not None and getattr(sm, 'kind', None) == 'ppg':
+        return str(_state.get('ppg_port', '') or '')
+    return ''
+
+
+def is_ppg_active() -> bool:
+    """현재 실측 소스가 PPG면 True, mock이면 False."""
+    sm = _state.get('source_manager')
+    return sm is not None and getattr(sm, 'kind', None) == 'ppg'
+
+
 def get_source_status() -> dict:
     """현재 HR 소스 연결 상태 dict."""
     sm = _state.get('source_manager')
@@ -407,8 +772,22 @@ def refresh_source() -> dict:
 
     port = str(_state.get('ppg_port', '') or '').strip()
     if not port:
+        # 현재 mock — PPG 자동 탐지 후 연결 시도 (실행 중 PPG를 꽂은 경우 대응)
+        baud = int(_state.get('ppg_baud', 115200))
+        detected = _autodetect_ppg_port(baud)
+        if detected:
+            try:
+                from biofeedback.hr_sources.ppg_serial import PPGSerialSource
+                new_src = PPGSerialSource(bus, port=detected, baudrate=baud)
+                sm.set_source(new_src, 'ppg')
+                _state['ppg_port'] = detected
+                return {'connected': True, 'kind': 'ppg', 'port': detected,
+                        'detail': f'{detected} 자동 연결 성공'}
+            except Exception as e:
+                return {'connected': False, 'kind': 'mock', 'port': detected,
+                        'detail': f'{detected} 연결 실패: {e}'}
         ports = list_ports()
-        detail = ('감지된 포트: ' + ', '.join(ports)) if ports else '감지된 시리얼 포트 없음'
+        detail = ('감지된 포트: ' + ', '.join(ports) + ' (PPG 데이터 없음)') if ports else '감지된 시리얼 포트 없음'
         return {'connected': True, 'kind': 'mock', 'ports': ports, 'detail': detail}
 
     # PPG 모드
@@ -441,6 +820,10 @@ def refresh_source() -> dict:
 
 def stop() -> None:
     """실험 종료 시 cleanup."""
+    try:
+        stop_logging()
+    except Exception:
+        pass
     for key in ('source_manager', 'manipulator', 'beat_scheduler', 'audio'):
         obj = _state.get(key)
         if obj is not None and hasattr(obj, 'stop'):
