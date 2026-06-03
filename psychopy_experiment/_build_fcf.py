@@ -251,6 +251,71 @@ add_code(intro, 'code_intro',
             'Each Frame': INTRO_FRAME})
 
 # ────────────────────────────────────────────────────────────────────────────
+# Routine: BaselineBPM (초반 안정 심박수 측정 — 60s 타이머 + 수기 입력)
+#   아티팩트 'smartwatch 1 min, No PPG' 설계: 스마트워치로 1분 측정 후 실험자가
+#   값을 키보드로 입력 → baseline_bpm covariate 로 저장.
+# ────────────────────────────────────────────────────────────────────────────
+baseline_bpm_rt = make_routine('BaselineBPM')
+
+BBPM_BEGIN = r'''bf.set_phase('baseline_bpm')
+_BBPM_MEAS_DUR = 60.0          # 측정 타이머(초)
+_bbpm_mode = 'measure'         # 'measure' → 'entry'
+# 시작 다이얼로그에 미리 적어둔 값이 있으면 입력칸에 프리필
+_pref = str(expInfo.get('baseline_bpm', '') or '').strip()
+_bbpm_str = ''.join(ch for ch in _pref if ch.isdigit())[:3]
+event.clearEvents()
+'''
+
+BBPM_FRAME = r'''if _bbpm_mode == 'measure':
+    secs_left = max(0, int(_BBPM_MEAS_DUR - t))
+    fix_stim.draw()
+    msg_stim.text = ('안정 심박수 측정\n\n'
+                     '스마트워치(또는 맥박계)로 약 1분간\n'
+                     '안정 시 심박수를 측정하세요.\n\n'
+                     f'남은 시간: {secs_left}초\n\n'
+                     '(스페이스 = 측정을 마치고 값 입력으로)')
+    msg_stim.draw()
+    _k = event.getKeys(keyList=['space', 'escape'])
+    if 'escape' in _k:
+        core.quit()
+    if 'space' in _k or t >= _BBPM_MEAS_DUR:
+        _bbpm_mode = 'entry'
+        event.clearEvents()
+else:  # entry — 실험자가 측정값을 직접 타이핑
+    q_stim.text = ('측정한 안정 심박수(BPM)를 입력하세요.\n\n'
+                   f'입력값:  {_bbpm_str or "_"}\n\n'
+                   '숫자 키로 입력 · Backspace 수정 · Enter 확정')
+    q_stim.draw()
+    for _key in event.getKeys():
+        if _key == 'escape':
+            core.quit()
+        elif _key in ('return', 'num_enter') and _bbpm_str:
+            continueRoutine = False
+        elif _key == 'backspace':
+            _bbpm_str = _bbpm_str[:-1]
+        elif _key.isdigit() and len(_bbpm_str) < 3:
+            _bbpm_str += _key
+        elif _key.startswith('num_') and _key[4:].isdigit() and len(_bbpm_str) < 3:
+            _bbpm_str += _key[4:]
+'''
+
+BBPM_END = r'''try:
+    _bbpm_val = float(_bbpm_str)
+except Exception:
+    _bbpm_val = float('nan')
+# covariate 저장: 측정값을 정식 baseline_bpm 으로 사용(다이얼로그 값 대체/보강)
+expInfo['baseline_bpm'] = _bbpm_str
+thisExp.addData('baseline_bpm_measured', _bbpm_val)
+thisExp.addData('baseline_bpm', _bbpm_val)
+outlet.push_sample([f'baseline_bpm:{_bbpm_str}'])
+print(f'[fcf] baseline BPM entered: {_bbpm_str!r} -> {_bbpm_val}')
+'''
+
+add_code(baseline_bpm_rt, 'code_baseline_bpm',
+         **{'Begin Routine': BBPM_BEGIN, 'Each Frame': BBPM_FRAME,
+            'End Routine': BBPM_END})
+
+# ────────────────────────────────────────────────────────────────────────────
 # Routine: Baseline (120s pulse palpation + fixation, no feedback)
 # ────────────────────────────────────────────────────────────────────────────
 baseline = make_routine('Baseline')
@@ -516,27 +581,28 @@ add_code(debrief, 'code_debrief',
 # Each routine is code-only; add an invisible anchor so it doesn't end after
 # one frame (CodeComponents are not counted in routine.components).
 # ────────────────────────────────────────────────────────────────────────────
-for _rt in (intro, baseline, practice, stimulus, assessment, rest,
-            exit_survey, debrief):
+for _rt in (intro, baseline_bpm_rt, baseline, practice, stimulus, assessment,
+            rest, exit_survey, debrief):
     add_anchor(_rt)
 
 # ────────────────────────────────────────────────────────────────────────────
-# Flow: Intro, Baseline, Practice, [loop: Stimulus, Assessment, Rest],
-#       ExitSurvey, Debrief
+# Flow: Intro, BaselineBPM, Baseline, Practice,
+#       [loop: Stimulus, Assessment, Rest], ExitSurvey, Debrief
 # ────────────────────────────────────────────────────────────────────────────
 exp.flow.addRoutine(intro, 0)
-exp.flow.addRoutine(baseline, 1)
-exp.flow.addRoutine(practice, 2)
-exp.flow.addRoutine(stimulus, 3)
-exp.flow.addRoutine(assessment, 4)
-exp.flow.addRoutine(rest, 5)
-exp.flow.addRoutine(exit_survey, 6)
-exp.flow.addRoutine(debrief, 7)
+exp.flow.addRoutine(baseline_bpm_rt, 1)
+exp.flow.addRoutine(baseline, 2)
+exp.flow.addRoutine(practice, 3)
+exp.flow.addRoutine(stimulus, 4)
+exp.flow.addRoutine(assessment, 5)
+exp.flow.addRoutine(rest, 6)
+exp.flow.addRoutine(exit_survey, 7)
+exp.flow.addRoutine(debrief, 8)
 
 block_loop = TrialHandler(exp, name='block_loop', loopType='sequential',
                           nReps=10, conditions=(), conditionsFile='')
-# wrap flow[3:6] = Stimulus, Assessment, Rest  → initiator@3, terminator@6
-exp.flow.addLoop(block_loop, 3, 6)
+# wrap flow[4:7] = Stimulus, Assessment, Rest  → initiator@4, terminator@7
+exp.flow.addLoop(block_loop, 4, 7)
 
 exp.saveToXML(OUT)
 print('SAVED', OUT)

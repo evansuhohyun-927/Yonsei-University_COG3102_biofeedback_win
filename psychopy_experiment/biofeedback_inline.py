@@ -87,6 +87,7 @@ MARKER_CODES = {
     'postexp_trust': 42,
     'maia_start': 43,
     # ── False Cardiac Feedback (고정 BPM) 설계 전용 라벨 ──────────────────
+    'baseline_bpm': 6,        # 초반 안정 심박수(스마트워치) 측정/입력
     'practice': 5,            # 연습 시행(70 BPM)
     # 5개 고정 조건의 자극 onset (블록 epoch 앵커 마커)
     'C1_53': 61,              # -25%
@@ -111,7 +112,7 @@ _PHASE_LABELS = {
     'stabilization', 'baseline', 'P1_sync', 'P2_ramp', 'P3_plateau',
     'P4_recovery', 'rest', 'rest_between_blocks', 'experiment_end',
     # FCF 고정 BPM 설계
-    'practice', 'assess', 'assess_off', 'stim_off',
+    'baseline_bpm', 'practice', 'assess', 'assess_off', 'stim_off',
 }
 
 # 로깅 서브시스템 상태 (start_logging/stop_logging가 관리)
