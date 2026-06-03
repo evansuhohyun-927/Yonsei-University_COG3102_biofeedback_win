@@ -40,11 +40,14 @@ data/
 biofeedback_console.log
 psychopy_experiment/fNIRS_HeartFeedback_lastrun.py
 psychopy_experiment/fNIRS_HeartFeedback_lastrun.log
+psychopy_experiment/fNIRS_FalseCardiacFeedback_lastrun.py
+psychopy_experiment/fNIRS_FalseCardiacFeedback_lastrun.log
 psychopy_experiment/__pycache__/
 
 # Lockfiles / temp
 *.tmp
 *.bak
+*.bak_preinline
 
 # 중첩 폴더 (원본 zip 추출 시 만들어진 중복본 — 사용 안 함)
 Yonsei-University_COG3102_biofeedback_win-main/

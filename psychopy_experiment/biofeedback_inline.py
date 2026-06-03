@@ -51,7 +51,7 @@ from biofeedback.core.beat_scheduler import BeatScheduler
 from biofeedback.core.bpm_smoother import BPMSmoother
 from biofeedback.core.source_manager import SourceManager
 from biofeedback.core.calibration_runner import CalibrationRunner
-from biofeedback.core.types import FakeFeedbackParams
+from biofeedback.core.types import FakeFeedbackParams, BPMSample
 from biofeedback.hr_sources.mock import MockHRSource
 
 # Phase 타이밍 (PsychoPy와 일치)
@@ -86,6 +86,21 @@ MARKER_CODES = {
     'postexp_bpm': 41,
     'postexp_trust': 42,
     'maia_start': 43,
+    # ── False Cardiac Feedback (고정 BPM) 설계 전용 라벨 ──────────────────
+    'practice': 5,            # 연습 시행(70 BPM)
+    # 5개 고정 조건의 자극 onset (블록 epoch 앵커 마커)
+    'C1_53': 61,              # -25%
+    'C2_60': 62,              # -15%
+    'C3_70': 63,              #   0% (baseline 표준)
+    'C4_81': 64,              # +15%
+    'C5_88': 65,              # +25%
+    'stim_off': 71,           # 자극 종료
+    'assess': 80,             # 평가 구간 진입
+    'assess_off': 81,         # 평가 구간 종료
+    'q1': 82,                 # Q1 유사도 응답 (value=점수)
+    'q2': 83,                 # Q2 편안함 응답
+    'q3': 84,                 # Q3 불편함 응답
+    'credibility': 90,        # 사후 신뢰도(조작 점검) 응답
     # 종료
     'experiment_end': 99,
     'logging_end': 100,
@@ -95,6 +110,8 @@ MARKER_CODES = {
 _PHASE_LABELS = {
     'stabilization', 'baseline', 'P1_sync', 'P2_ramp', 'P3_plateau',
     'P4_recovery', 'rest', 'rest_between_blocks', 'experiment_end',
+    # FCF 고정 BPM 설계
+    'practice', 'assess', 'assess_off', 'stim_off',
 }
 
 # 로깅 서브시스템 상태 (start_logging/stop_logging가 관리)
@@ -129,6 +146,7 @@ _state: dict = {
     'audio_device_index': None,
     'output_bpm': 70.0,
     'real_bpm': 70.0,
+    'fixed_mode': False,
     'baseline_bpm': None,
     'calibration_running': False,
     'calibration_failed': False,
@@ -290,6 +308,80 @@ def start(source: str = 'mock', ppg_port: str = '', ppg_baud: int = 115200,
 
     _state['started'] = True
     print('[bf_inline] started')
+
+
+# ── 고정 BPM 모드 (False Cardiac Feedback 설계) ──────────────────────────────
+# PPG/Manipulator/소스 없이, 각 블록마다 '절대 고정 BPM'(53/60/70/81/88 등)으로
+# 심박음(오디오) 또는 시각 박동을 제시하기 위한 경량 시작 경로.
+#   - 오디오: BeatScheduler가 bpm_output 을 따라 'beat' 를 내고 AudioFeedback 재생.
+#     set_fixed_bpm(b) 이 bpm_output 을 직접 publish 하므로 Manipulator 불필요.
+#   - 시각: ecg_renderer.update(t, b) 로 PsychoPy 쪽에서 직접 박동(버스 무관).
+#   - 로깅: 기존 start_logging/log_marker 그대로 사용. output_bpm 열 = 제시 BPM.
+
+def start_fixed(audio_on: bool = True) -> None:
+    """고정 BPM 모드 1회 시작. bus + BeatScheduler + AudioFeedback 만 구성.
+
+    audio_on=True  → 심박음 재생(청각 모드)
+    audio_on=False → 오디오 스트림은 열되 음소거(시각 모드)
+    """
+    if _state['started']:
+        return
+
+    bus = EventBus()
+    _state['bus'] = bus
+    _state['fixed_mode'] = True
+
+    beat_scheduler = BeatScheduler(bus)
+    _state['beat_scheduler'] = beat_scheduler
+
+    # 오디오 — 스트림은 항상 열고 mute 로 on/off (stream churn 방지)
+    try:
+        from biofeedback.feedback.audio import AudioFeedback
+        _beat_path = os.path.join(_project, 'biofeedback', 'assets', 'heartbeat.mp3')
+        if not os.path.exists(_beat_path):
+            _beat_path = None
+        audio = AudioFeedback(bus, mode='heartbeat', thump_gain=1.0,
+                              beat_sound_path=_beat_path)
+        audio.start()
+        audio.set_muted(not audio_on)
+        _state['audio'] = audio
+        _state['audio_on'] = bool(audio_on)
+        print(f'[bf_inline] audio stream up (fixed mode, on={audio_on})')
+    except Exception as e:
+        _state['audio'] = None
+        _state['audio_on'] = False
+        print(f'[bf_inline] audio init failed: {e}')
+
+    _state['started'] = True
+    print(f'[bf_inline] started (fixed BPM mode, audio_on={audio_on})')
+
+
+def set_fixed_bpm(bpm: float) -> None:
+    """현재 제시할 고정 BPM 설정.
+
+    BeatScheduler(오디오 박자)와 로깅(output_bpm/real_bpm)을 함께 갱신한다.
+    시각 모드에서는 ecg_renderer.update(t, bpm) 에 같은 값을 넘기면 된다.
+    """
+    b = float(bpm)
+    _state['output_bpm'] = b
+    _state['real_bpm'] = b  # 고정 모드: 제시 BPM = 로그값(실측 PPG 없음)
+    bus = _state.get('bus')
+    if bus is not None:
+        try:
+            bus.publish('bpm_output', BPMSample(time.time(), b))
+        except Exception as e:
+            print(f'[bf_inline] set_fixed_bpm publish err: {e}')
+
+
+def set_phase(name: str) -> None:
+    """로깅용 현재 페이즈 라벨 설정('stim'/'assess'/'rest'/'baseline' 등)."""
+    _state['current_phase'] = str(name)
+
+
+def set_block_label(label: str) -> None:
+    """로깅용 현재 블록/조건 라벨 설정(예: 'C3_70'). bpm/events CSV 의
+    block_type 열에 기록된다(고정 모드에서는 조건 식별자로 사용)."""
+    _state['current_block_type'] = str(label)
 
 
 def start_calibration() -> None:
