@@ -42,6 +42,8 @@ psychopy_experiment/fNIRS_HeartFeedback_lastrun.py
 psychopy_experiment/fNIRS_HeartFeedback_lastrun.log
 psychopy_experiment/fNIRS_FalseCardiacFeedback_lastrun.py
 psychopy_experiment/fNIRS_FalseCardiacFeedback_lastrun.log
+psychopy_experiment/MAIA_Survey_lastrun.py
+psychopy_experiment/MAIA_Survey_lastrun.log
 psychopy_experiment/__pycache__/
 
 # Lockfiles / temp

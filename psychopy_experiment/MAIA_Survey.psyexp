@@ -1,0 +1,259 @@
+﻿<?xml version="1.0" ?>
+<PsychoPy2experiment encoding="utf-8" version="2026.1.3">
+  <Settings>
+    <Param val="ptb" valType="str" updates="None" name="Audio lib"/>
+    <Param val="" valType="str" updates="None" name="Completed URL"/>
+    <Param val="auto" valType="str" updates="None" name="Data file delimiter"/>
+    <Param val="u'data/%s_MAIA_%s' % (expInfo['participant'], expInfo['date'])" valType="code" updates="None" name="Data filename"/>
+    <Param val="True" valType="bool" updates="None" name="Enable Escape"/>
+    <Param val="설문에 참여해 주셔서 감사합니다." valType="str" updates="None" name="End Message"/>
+    <Param val="{'participant': '000', 'session': '001', 'age': '', 'sex': ['F', 'M', 'other']}" valType="code" updates="None" name="Experiment info"/>
+    <Param val="True" valType="bool" updates="None" name="Force stereo"/>
+    <Param val="False" valType="bool" updates="None" name="Full-screen window"/>
+    <Param val="" valType="str" updates="None" name="HTML path"/>
+    <Param val="" valType="str" updates="None" name="Incomplete URL"/>
+    <Param val="testMonitor" valType="str" updates="None" name="Monitor"/>
+    <Param val="[]" valType="list" updates="None" name="Resources"/>
+    <Param val="False" valType="bool" updates="None" name="Save csv file"/>
+    <Param val="False" valType="bool" updates="None" name="Save excel file"/>
+    <Param val="False" valType="bool" updates="None" name="Save hdf5 file"/>
+    <Param val="True" valType="bool" updates="None" name="Save log file"/>
+    <Param val="True" valType="bool" updates="None" name="Save psydat file"/>
+    <Param val="True" valType="bool" updates="None" name="Save wide csv file"/>
+    <Param val="1" valType="num" updates="None" name="Screen"/>
+    <Param val="True" valType="bool" updates="None" name="Show info dlg"/>
+    <Param val="False" valType="bool" updates="None" name="Show mouse"/>
+    <Param val="height" valType="str" updates="None" name="Units"/>
+    <Param val="" valType="str" updates="None" name="Use version"/>
+    <Param val="(1280, 720)" valType="list" updates="None" name="Window size (pixels)"/>
+    <Param val="none" valType="str" updates="None" name="backgroundFit"/>
+    <Param val="" valType="str" updates="None" name="backgroundImg"/>
+    <Param val="avg" valType="str" updates="None" name="blendMode"/>
+    <Param val="float" valType="str" updates="None" name="clockFormat"/>
+    <Param val="{'thisRow.t': 'priority.CRITICAL', 'expName': 'priority.LOW'}" valType="dict" updates="None" name="colPriority"/>
+    <Param val="$[-1,-1,-1]" valType="color" updates="None" name="color"/>
+    <Param val="rgb" valType="str" updates="None" name="colorSpace"/>
+    <Param val="warning" valType="code" updates="None" name="consoleLoggingLevel"/>
+    <Param val="MAIA_Survey" valType="str" updates="None" name="expName"/>
+    <Param val="" valType="str" updates="None" name="expVersion"/>
+    <Param val="on Sync" valType="str" updates="None" name="exportHTML"/>
+    <Param val="None" valType="str" updates="None" name="eyetracker"/>
+    <Param val="" valType="code" updates="None" name="frameRate"/>
+    <Param val="Attempting to measure frame rate of screen, please wait..." valType="str" updates="None" name="frameRateMsg"/>
+    <Param val="PsychToolbox" valType="str" updates="None" name="keyboardBackend"/>
+    <Param val="info" valType="code" updates="None" name="logging level"/>
+    <Param val="True" valType="bool" updates="None" name="measureFrameRate"/>
+    <Param val="MIDDLE_BUTTON" valType="list" updates="None" name="mgBlink"/>
+    <Param val="CONTINUOUS" valType="str" updates="None" name="mgMove"/>
+    <Param val="0.5" valType="num" updates="None" name="mgSaccade"/>
+    <Param val="0" valType="code" updates="None" name="runMode"/>
+    <Param val="False" valType="bool" updates="None" name="rush"/>
+    <Param val="time" valType="str" updates="None" name="sortColumns"/>
+    <Param val="pyglet" valType="str" updates="None" name="winBackend"/>
+  </Settings>
+  <Routines>
+    <Routine name="MAIA_Intro">
+      <RoutineSettingsComponent name="MAIA_Intro" plugin="None">
+        <Param val="none" valType="str" updates="None" name="backgroundFit"/>
+        <Param val="" valType="str" updates="None" name="backgroundImg"/>
+        <Param val="$[0,0,0]" valType="color" updates="None" name="color"/>
+        <Param val="rgb" valType="str" updates="None" name="colorSpace"/>
+        <Param val="" valType="str" updates="constant" name="desc"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="False" valType="code" updates="None" name="forceNonSlip"/>
+        <Param val="MAIA_Intro" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="constant" name="skipIf"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="False" valType="bool" updates="None" name="useWindowParams"/>
+      </RoutineSettingsComponent>
+      <CodeComponent name="code_maia_intro" plugin="None">
+        <Param val="import os, sys&amp;#10;try:&amp;#10;    sys.stdout.reconfigure(encoding='utf-8', errors='replace')&amp;#10;    sys.stderr.reconfigure(encoding='utf-8', errors='replace')&amp;#10;except Exception:&amp;#10;    pass&amp;#10;print('[maia] === Before Experiment ===')&amp;#10;from psychopy import event&amp;#10;" valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
+        <Param val="print('[maia] === Begin Experiment ===')&amp;#10;&amp;#10;# 공용 자극&amp;#10;prog_stim = visual.TextStim(win, name='prog_stim', text='', height=0.030,&amp;#10;                            color=(0.2, 0.2, 0.2), pos=(0, 0.43),&amp;#10;                            alignText='center')&amp;#10;item_stim = visual.TextStim(win, name='item_stim', text='', height=0.052,&amp;#10;                            color='white', pos=(0, 0.14), wrapWidth=1.5,&amp;#10;                            alignText='center')&amp;#10;scale_stim = visual.TextStim(win, name='scale_stim', text='', height=0.038,&amp;#10;                             color='white', pos=(0, -0.18), wrapWidth=1.6,&amp;#10;                             alignText='center')&amp;#10;msg_stim = visual.TextStim(win, name='msg_stim', text='', height=0.045,&amp;#10;                           color='white', pos=(0, 0), wrapWidth=1.5,&amp;#10;                           alignText='center')&amp;#10;&amp;#10;# 척도 안내 텍스트 (0–5)&amp;#10;SCALE_TEXT = ('0  전혀 그렇지 않다      …      5  항상 그렇다\n\n'&amp;#10;              '0      1      2      3      4      5\n\n'&amp;#10;              '해당하는 숫자 키(0–5)를 누르세요')&amp;#10;&amp;#10;# 하위척도 점수 누적 (역채점 반영 후)&amp;#10;_subscale_scores = {}&amp;#10;_resp_count = 0&amp;#10;&amp;#10;thisExp.addData('age', expInfo.get('age', ''))&amp;#10;thisExp.addData('sex', expInfo.get('sex', ''))&amp;#10;" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="Py" valType="str" updates="None" name="Code Type"/>
+        <Param val="msg_stim.text = ('신체 감각 자각 설문 (MAIA)\n\n'&amp;#10;                 '아래 문항들이 평소 자신에게 얼마나 해당하는지\n'&amp;#10;                 '0(전혀 그렇지 않다)부터 5(항상 그렇다)까지로 응답하세요.\n\n'&amp;#10;                 '정답은 없으며, 떠오르는 대로 솔직하게 답하시면 됩니다.\n\n'&amp;#10;                 '총 24문항 · 약 5–10분 소요\n\n'&amp;#10;                 '준비되면 스페이스바를 누르세요.')&amp;#10;msg_stim.draw()&amp;#10;_k = event.getKeys(keyList=['space', 'escape'])&amp;#10;if 'escape' in _k:&amp;#10;    core.quit()&amp;#10;if 'space' in _k:&amp;#10;    continueRoutine = False&amp;#10;" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="code_maia_intro" valType="code" updates="None" name="name"/>
+      </CodeComponent>
+      <TextComponent name="_keep" plugin="None">
+        <Param val="white" valType="color" updates="constant" name="color"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="False" valType="code" updates="constant" name="draggable"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="None" valType="str" updates="constant" name="flip"/>
+        <Param val="Arial" valType="str" updates="constant" name="font"/>
+        <Param val="LTR" valType="str" updates="None" name="languageStyle"/>
+        <Param val="0.05" valType="num" updates="constant" name="letterHeight"/>
+        <Param val="_keep" valType="code" updates="None" name="name"/>
+        <Param val="0" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
+        <Param val="False" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val=" " valType="str" updates="constant" name="text"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="code" updates="None" name="validator"/>
+        <Param val="" valType="num" updates="constant" name="wrapWidth"/>
+      </TextComponent>
+    </Routine>
+    <Routine name="MAIA_Item">
+      <RoutineSettingsComponent name="MAIA_Item" plugin="None">
+        <Param val="none" valType="str" updates="None" name="backgroundFit"/>
+        <Param val="" valType="str" updates="None" name="backgroundImg"/>
+        <Param val="$[0,0,0]" valType="color" updates="None" name="color"/>
+        <Param val="rgb" valType="str" updates="None" name="colorSpace"/>
+        <Param val="" valType="str" updates="constant" name="desc"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="False" valType="code" updates="None" name="forceNonSlip"/>
+        <Param val="MAIA_Item" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="constant" name="skipIf"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="False" valType="bool" updates="None" name="useWindowParams"/>
+      </RoutineSettingsComponent>
+      <CodeComponent name="code_maia_item" plugin="None">
+        <Param val="" valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
+        <Param val="_resp = None&amp;#10;_item_onset = core.getTime()&amp;#10;event.clearEvents()&amp;#10;" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="Py" valType="str" updates="None" name="Code Type"/>
+        <Param val="prog_stim.text = f'{maia_loop.thisN + 1} / {maia_loop.nTotal}'&amp;#10;item_stim.text = str(item_text)&amp;#10;scale_stim.text = SCALE_TEXT&amp;#10;prog_stim.draw()&amp;#10;item_stim.draw()&amp;#10;scale_stim.draw()&amp;#10;_k = event.getKeys(keyList=['0', '1', '2', '3', '4', '5', 'escape'])&amp;#10;if 'escape' in _k:&amp;#10;    core.quit()&amp;#10;if _k:&amp;#10;    _resp = int(_k[0])&amp;#10;    continueRoutine = False&amp;#10;" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
+        <Param val="try:&amp;#10;    _rev = int(float(reverse))&amp;#10;except Exception:&amp;#10;    _rev = 0&amp;#10;_scored = (5 - _resp) if (_rev == 1 and _resp is not None) else _resp&amp;#10;thisExp.addData('item_num', item_num)&amp;#10;thisExp.addData('subscale', subscale)&amp;#10;thisExp.addData('reverse', _rev)&amp;#10;thisExp.addData('response_raw', _resp)&amp;#10;thisExp.addData('response_scored', _scored)&amp;#10;thisExp.addData('rt', round(core.getTime() - _item_onset, 4))&amp;#10;if _scored is not None:&amp;#10;    _subscale_scores.setdefault(str(subscale), []).append(_scored)&amp;#10;    _resp_count += 1&amp;#10;" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="code_maia_item" valType="code" updates="None" name="name"/>
+      </CodeComponent>
+      <TextComponent name="_keep" plugin="None">
+        <Param val="white" valType="color" updates="constant" name="color"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="False" valType="code" updates="constant" name="draggable"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="None" valType="str" updates="constant" name="flip"/>
+        <Param val="Arial" valType="str" updates="constant" name="font"/>
+        <Param val="LTR" valType="str" updates="None" name="languageStyle"/>
+        <Param val="0.05" valType="num" updates="constant" name="letterHeight"/>
+        <Param val="_keep" valType="code" updates="None" name="name"/>
+        <Param val="0" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
+        <Param val="False" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val=" " valType="str" updates="constant" name="text"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="code" updates="None" name="validator"/>
+        <Param val="" valType="num" updates="constant" name="wrapWidth"/>
+      </TextComponent>
+    </Routine>
+    <Routine name="MAIA_End">
+      <RoutineSettingsComponent name="MAIA_End" plugin="None">
+        <Param val="none" valType="str" updates="None" name="backgroundFit"/>
+        <Param val="" valType="str" updates="None" name="backgroundImg"/>
+        <Param val="$[0,0,0]" valType="color" updates="None" name="color"/>
+        <Param val="rgb" valType="str" updates="None" name="colorSpace"/>
+        <Param val="" valType="str" updates="constant" name="desc"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="False" valType="code" updates="None" name="forceNonSlip"/>
+        <Param val="MAIA_End" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="constant" name="skipIf"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="False" valType="bool" updates="None" name="useWindowParams"/>
+      </RoutineSettingsComponent>
+      <CodeComponent name="code_maia_end" plugin="None">
+        <Param val="" valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
+        <Param val="# 8개 하위척도 평균(역채점 반영) 계산&amp;#10;_SUBSCALE_ORDER = ['Noticing', 'Not-Distracting', 'Not-Worrying',&amp;#10;                   'Attention-Regulation', 'Emotional-Awareness',&amp;#10;                   'Self-Regulation', 'Body-Listening', 'Trusting']&amp;#10;_summary = {}&amp;#10;_all_vals = []&amp;#10;for _sub in _SUBSCALE_ORDER:&amp;#10;    _vals = _subscale_scores.get(_sub, [])&amp;#10;    if _vals:&amp;#10;        _m = sum(_vals) / len(_vals)&amp;#10;        _all_vals += _vals&amp;#10;    else:&amp;#10;        _m = float('nan')&amp;#10;    _summary[_sub] = _m&amp;#10;    thisExp.addData('MAIA_' + _sub.replace('-', '_'), round(_m, 4))&amp;#10;_overall = (sum(_all_vals) / len(_all_vals)) if _all_vals else float('nan')&amp;#10;thisExp.addData('MAIA_overall_mean', round(_overall, 4))&amp;#10;thisExp.addData('MAIA_n_answered', _resp_count)&amp;#10;print('[maia] subscale means:')&amp;#10;for _sub in _SUBSCALE_ORDER:&amp;#10;    print(f'   {_sub:22s} {_summary[_sub]:.3f}')&amp;#10;print(f'   {&quot;OVERALL&quot;:22s} {_overall:.3f}  (n={_resp_count}/24)')&amp;#10;&amp;#10;# 분석 편의용 별도 요약 CSV 저장&amp;#10;try:&amp;#10;    import csv as _csv&amp;#10;    _base = thisExp.dataFileName  # 확장자 없는 경로&amp;#10;    _sum_path = _base + '_subscales.csv'&amp;#10;    _d = os.path.dirname(_sum_path)&amp;#10;    if _d and not os.path.isdir(_d):&amp;#10;        os.makedirs(_d, exist_ok=True)&amp;#10;    with open(_sum_path, 'w', newline='', encoding='utf-8-sig') as _f:&amp;#10;        _w = _csv.writer(_f)&amp;#10;        _w.writerow(['participant', 'session', 'age', 'sex',&amp;#10;                     'subscale', 'mean_score', 'n_items'])&amp;#10;        _pid = expInfo.get('participant', '')&amp;#10;        _ses = expInfo.get('session', '')&amp;#10;        _age = expInfo.get('age', '')&amp;#10;        _sex = expInfo.get('sex', '')&amp;#10;        for _sub in _SUBSCALE_ORDER:&amp;#10;            _vals = _subscale_scores.get(_sub, [])&amp;#10;            _mean = (sum(_vals) / len(_vals)) if _vals else ''&amp;#10;            _w.writerow([_pid, _ses, _age, _sex, _sub,&amp;#10;                         (round(_mean, 4) if _vals else ''), len(_vals)])&amp;#10;        _w.writerow([_pid, _ses, _age, _sex, 'OVERALL',&amp;#10;                     (round(_overall, 4) if _all_vals else ''), _resp_count])&amp;#10;    print('[maia] 요약 저장:', _sum_path)&amp;#10;except Exception as _e:&amp;#10;    print('[maia] 요약 CSV 저장 실패:', repr(_e))&amp;#10;" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="Py" valType="str" updates="None" name="Code Type"/>
+        <Param val="msg_stim.text = ('설문이 끝났습니다.\n\n참여해 주셔서 감사합니다.\n\n'&amp;#10;                 '스페이스바를 누르면 종료됩니다.')&amp;#10;msg_stim.draw()&amp;#10;if 'space' in event.getKeys(keyList=['space']):&amp;#10;    continueRoutine = False&amp;#10;" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Each JS Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="code_maia_end" valType="code" updates="None" name="name"/>
+      </CodeComponent>
+      <TextComponent name="_keep" plugin="None">
+        <Param val="white" valType="color" updates="constant" name="color"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="False" valType="code" updates="constant" name="draggable"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="None" valType="str" updates="constant" name="flip"/>
+        <Param val="Arial" valType="str" updates="constant" name="font"/>
+        <Param val="LTR" valType="str" updates="None" name="languageStyle"/>
+        <Param val="0.05" valType="num" updates="constant" name="letterHeight"/>
+        <Param val="_keep" valType="code" updates="None" name="name"/>
+        <Param val="0" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="(0, 0)" valType="list" updates="constant" name="pos"/>
+        <Param val="False" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val=" " valType="str" updates="constant" name="text"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="code" updates="None" name="validator"/>
+        <Param val="" valType="num" updates="constant" name="wrapWidth"/>
+      </TextComponent>
+    </Routine>
+  </Routines>
+  <Flow>
+    <Routine name="MAIA_Intro"/>
+    <LoopInitiator loopType="TrialHandler" name="maia_loop">
+      <Param name="Selected rows" updates="None" val="" valType="code"/>
+      <Param name="conditions" updates="None" val="[{'item_num': 1, 'item_text': '나는 몸에서 불편감이 느껴지면, 그것을 바로 알아차린다.', 'subscale': 'Noticing', 'reverse': 0}, {'item_num': 2, 'item_text': '나는 정확하게 내 몸의 어느 부위가 편안하게 느껴지는지 알아차린다.', 'subscale': 'Noticing', 'reverse': 0}, {'item_num': 3, 'item_text': '나는 호흡의 변화, 즉 호흡이 느려지거나 빨라지는 것을 알아차린다.', 'subscale': 'Noticing', 'reverse': 0}, {'item_num': 4, 'item_text': '나는 불편한 감각이 느껴지면, 그것을 주의깊게 관찰한다.', 'subscale': 'Not-Distracting', 'reverse': 0}, {'item_num': 5, 'item_text': '나는 불편한 감정을 무언가에 집중함으로써 밀어낸다.', 'subscale': 'Not-Distracting', 'reverse': 1}, {'item_num': 6, 'item_text': '불쾌한 신체 감각을 느낄 때, 그것을 느끼지 않기 위해 다른 무언가에 나를 몰두시킨다.', 'subscale': 'Not-Distracting', 'reverse': 1}, {'item_num': 7, 'item_text': '나는 몸에서 통증을 느껴도 별로 당황하지 않는다.', 'subscale': 'Not-Worrying', 'reverse': 0}, {'item_num': 8, 'item_text': '나는 몸에서 어떤 불편함을 느껴도 별로 걱정하지 않는다.', 'subscale': 'Not-Worrying', 'reverse': 0}, {'item_num': 9, 'item_text': '불편함이나 통증을 느낄 때, 그것이 머릿속에서 떠나지 않는다.', 'subscale': 'Not-Worrying', 'reverse': 1}, {'item_num': 10, 'item_text': '나는 주변에서 많은 일이 일어나고 있어도 내부 신체감각에 대한 자각을 유지할 수 있다.', 'subscale': 'Attention-Regulation', 'reverse': 0}, {'item_num': 11, 'item_text': '나는 산만해지더라도, 다시 몸으로 주의를 돌릴 수 있다.', 'subscale': 'Attention-Regulation', 'reverse': 0}, {'item_num': 12, 'item_text': '나는 생각에서 몸의 감각으로 주의를 되돌릴 수 있다.', 'subscale': 'Attention-Regulation', 'reverse': 0}, {'item_num': 13, 'item_text': '평화로운 마음을 경험하고 나면, 내 몸이 다르게 느껴지는 것을 알아차린다.', 'subscale': 'Emotional-Awareness', 'reverse': 0}, {'item_num': 14, 'item_text': '마음이 편안하면, 호흡이 더 자유롭고 편안해지는 것을 알아차린다.', 'subscale': 'Emotional-Awareness', 'reverse': 0}, {'item_num': 15, 'item_text': '행복하거나 기쁠 때, 내 몸에서 어떤 변화가 일어나는지 알아차린다.', 'subscale': 'Emotional-Awareness', 'reverse': 0}, {'item_num': 16, 'item_text': '나는 주의를 몸에 둘 때, 고요함을 느낀다.', 'subscale': 'Self-Regulation', 'reverse': 0}, {'item_num': 17, 'item_text': '나는 호흡을 이용해서 긴장감을 줄일 수 있다.', 'subscale': 'Self-Regulation', 'reverse': 0}, {'item_num': 18, 'item_text': '나는 잡념에 사로잡힐 때, 몸 또는 호흡에 집중하여 마음을 고요하게 할 수 있다.', 'subscale': 'Self-Regulation', 'reverse': 0}, {'item_num': 19, 'item_text': '나는 몸을 통해 나의 기분 상태를 알아차린다.', 'subscale': 'Body-Listening', 'reverse': 0}, {'item_num': 20, 'item_text': '나는 당혹스러울 때, 내 몸이 그것을 어떻게 느끼는지 살피는 시간을 갖는다.', 'subscale': 'Body-Listening', 'reverse': 0}, {'item_num': 21, 'item_text': '나는 무엇을 해야 할지에 대한 정보를 얻고자 내 몸에 귀를 기울인다.', 'subscale': 'Body-Listening', 'reverse': 0}, {'item_num': 22, 'item_text': '나는 내 몸 안에서 편안함을 느낀다.', 'subscale': 'Trusting', 'reverse': 0}, {'item_num': 23, 'item_text': '나는 내 몸을 안전한 장소라고 느낀다.', 'subscale': 'Trusting', 'reverse': 0}, {'item_num': 24, 'item_text': '나는 내 몸의 감각을 신뢰한다.', 'subscale': 'Trusting', 'reverse': 0}]" valType="str"/>
+      <Param name="conditionsFile" updates="None" val="conditions/maia_items.xlsx" valType="file"/>
+      <Param name="endPoints" updates="None" val="[0, 1]" valType="code"/>
+      <Param name="isTrials" updates="None" val="True" valType="bool"/>
+      <Param name="loopType" updates="None" val="sequential" valType="str"/>
+      <Param name="nReps" updates="None" val="1" valType="code"/>
+      <Param name="name" updates="None" val="maia_loop" valType="code"/>
+      <Param name="random seed" updates="None" val="" valType="code"/>
+    </LoopInitiator>
+    <Routine name="MAIA_Item"/>
+    <LoopTerminator name="maia_loop"/>
+    <Routine name="MAIA_End"/>
+  </Flow>
+</PsychoPy2experiment>
